@@ -5,7 +5,7 @@ use derivative::Derivative;
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum ResolvedType {
+pub enum ResolvedType<'de> {
     /// The number in a `Str` represents its size, which must be known at compile time
     Str(u64),
     UnsignedInteger(IntegerBits),
@@ -21,7 +21,7 @@ pub enum ResolvedType {
     #[allow(dead_code)]
     Enum {
         name: Ident,
-        variant_types: Vec<ResolvedType>,
+        variant_types: Vec<ResolvedType<'de>>,
     },
     /// Represents the contract's type as a whole. Used for implementing
     /// traits on the contract itself, to enforce a specific type of ABI.
@@ -33,25 +33,25 @@ pub enum ResolvedType {
     ContractCaller {
         abi_name: CallPath,
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
-        address: Box<TypedExpression>,
+        address: Box<TypedExpression<'de>>,
     },
     #[allow(dead_code)]
     Function {
-        from: Box<ResolvedType>,
-        to: Box<ResolvedType>,
+        from: Box<ResolvedType<'de>>,
+        to: Box<ResolvedType<'de>>,
     },
     /// used for recovering from errors in the ast
     #[allow(dead_code)]
     ErrorRecovery,
 }
 
-impl Default for ResolvedType {
+impl Default for ResolvedType<'_> {
     fn default() -> Self {
         ResolvedType::Unit
     }
 }
 
-impl ResolvedType {
+impl ResolvedType<'_> {
     pub(crate) fn is_copy_type(&self) -> bool {
         matches!(
             self,

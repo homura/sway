@@ -40,10 +40,10 @@ impl CopyTypes for TypedTraitDeclaration {
 }
 
 impl TypedTraitDeclaration {
-    pub(crate) fn type_check(
+    pub(crate) fn type_check<'de>(
         ctx: TypeCheckContext,
         trait_decl: TraitDeclaration,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<'de, Self> {
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
 
@@ -104,10 +104,10 @@ impl TypedTraitDeclaration {
 
 /// Recursively handle supertraits by adding all their interfaces and methods to some namespace
 /// which is meant to be the namespace of the subtrait in question
-fn handle_supertraits(
+fn handle_supertraits<'de>(
     supertraits: &[Supertrait],
     trait_namespace: &mut Namespace,
-) -> CompileResult<()> {
+) -> CompileResult<'de, ()> {
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
 
@@ -171,10 +171,10 @@ fn handle_supertraits(
 
 /// Convert a vector of FunctionDeclarations into a vector of TypedFunctionDeclarations where only
 /// the parameters and the return types are type checked.
-fn convert_trait_methods_to_dummy_funcs(
+fn convert_trait_methods_to_dummy_funcs<'de>(
     methods: &[FunctionDeclaration],
     trait_namespace: &mut Namespace,
-) -> CompileResult<Vec<TypedFunctionDeclaration>> {
+) -> CompileResult<'de, Vec<TypedFunctionDeclaration<'de>>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let dummy_funcs = methods

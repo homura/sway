@@ -84,13 +84,13 @@ impl<T> ParserLifter<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct CompileResult<T> {
+pub struct CompileResult<'de, T> {
     pub value: Option<T>,
-    pub warnings: Vec<CompileWarning>,
+    pub warnings: Vec<CompileWarning<'de>>,
     pub errors: Vec<CompileError>,
 }
 
-impl<T> From<Result<T, CompileError>> for CompileResult<T> {
+impl<T> From<Result<T, CompileError>> for CompileResult<'_, T> {
     fn from(o: Result<T, CompileError>) -> Self {
         match o {
             Ok(o) => CompileResult {
@@ -107,7 +107,7 @@ impl<T> From<Result<T, CompileError>> for CompileResult<T> {
     }
 }
 
-impl<T> CompileResult<T> {
+impl<T> CompileResult<'_, T> {
     pub fn is_ok(&self) -> bool {
         self.value.is_some() && self.errors.is_empty()
     }
@@ -134,14 +134,17 @@ impl<T> CompileResult<T> {
         self.value
     }
 
-    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> CompileResult<U> {
+    pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> CompileResult<'static, U> {
         match self.value {
             None => err(self.warnings, self.errors),
             Some(value) => ok(f(value), self.warnings, self.errors),
         }
     }
 
-    pub fn flat_map<U, F: FnOnce(T) -> CompileResult<U>>(self, f: F) -> CompileResult<U> {
+    pub fn flat_map<'de, U, F: FnOnce(T) -> CompileResult<'de, U>>(
+        self,
+        f: F,
+    ) -> CompileResult<'static, U> {
         match self.value {
             None => err(self.warnings, self.errors),
             Some(value) => {
@@ -170,13 +173,13 @@ impl<T> CompileResult<T> {
     }
 }
 
-impl<'a, T> CompileResult<&'a T>
+impl<'de, 'a, T> CompileResult<'de, &'a T>
 where
     T: Clone,
 {
     /// Converts a `CompileResult` around a reference value to an owned value by cloning the type
     /// behind the reference.
-    pub fn cloned(self) -> CompileResult<T> {
+    pub fn cloned(self) -> CompileResult<'de, T> {
         let CompileResult {
             value,
             warnings,
@@ -214,18 +217,18 @@ impl Display for Hint {
 // TODO: since moving to using Idents instead of strings the warning_content will usually contain a
 // duplicate of the span.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CompileWarning {
+pub struct CompileWarning<'de> {
     pub span: Span,
-    pub warning_content: Warning,
+    pub warning_content: Warning<'de>,
 }
 
-impl Spanned for CompileWarning {
+impl Spanned for CompileWarning<'_> {
     fn span(&self) -> Span {
         self.span.clone()
     }
 }
 
-impl CompileWarning {
+impl CompileWarning<'_> {
     pub fn to_friendly_warning_string(&self) -> String {
         self.warning_content.to_string()
     }
@@ -259,7 +262,7 @@ impl From<(usize, usize)> for LineCol {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Warning {
+pub enum Warning<'de> {
     NonClassCaseStructName {
         struct_name: Ident,
     },
@@ -289,7 +292,7 @@ pub enum Warning {
         cast_to: IntegerBits,
     },
     UnusedReturnValue {
-        r#type: Box<TypeInfo>,
+        r#type: Box<TypeInfo<'de>>,
     },
     SimilarMethodFound {
         lib: Ident,
@@ -323,7 +326,7 @@ pub enum Warning {
     },
 }
 
-impl fmt::Display for Warning {
+impl fmt::Display for Warning<'_> {
     // This trait requires `fmt` with this exact signature.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Warning::*;

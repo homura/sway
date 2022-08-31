@@ -12,11 +12,11 @@ use crate::{
 use super::TypedExpression;
 
 // currently the unsafe downcast expr is only used for enums, so this method is specialized for enums
-pub(crate) fn instantiate_unsafe_downcast(
+pub(crate) fn instantiate_unsafe_downcast<'de>(
     exp: &TypedExpression,
     variant: TypedEnumVariant,
     span: Span,
-) -> (MatchReqMap, TypedExpression) {
+) -> (MatchReqMap<'de>, TypedExpression<'de>) {
     let match_req_map = vec![(
         TypedExpression {
             expression: TypedExpressionVariant::EnumTag {

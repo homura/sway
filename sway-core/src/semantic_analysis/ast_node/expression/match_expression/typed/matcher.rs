@@ -17,11 +17,11 @@ use sway_types::span::Span;
 use super::typed_scrutinee::{TypedScrutinee, TypedScrutineeVariant, TypedStructScrutineeField};
 
 /// List of requirements that a desugared if expression must include in the conditional.
-pub(crate) type MatchReqMap = Vec<(TypedExpression, TypedExpression)>;
+pub(crate) type MatchReqMap<'de> = Vec<(TypedExpression<'de>, TypedExpression<'de>)>;
 /// List of variable declarations that must be placed inside of the body of the if expression.
-pub(crate) type MatchDeclMap = Vec<(Ident, TypedExpression)>;
+pub(crate) type MatchDeclMap<'de> = Vec<(Ident, TypedExpression<'de>)>;
 /// This is the result type given back by the matcher.
-pub(crate) type MatcherResult = (MatchReqMap, MatchDeclMap);
+pub(crate) type MatcherResult<'de> = (MatchReqMap<'de>, MatchDeclMap<'de>);
 
 /// This algorithm desugars pattern matching into a [MatcherResult], by creating two lists,
 /// the [MatchReqMap] which is a list of requirements that a desugared if expression
@@ -63,11 +63,11 @@ pub(crate) type MatcherResult = (MatchReqMap, MatchDeclMap);
 ///     (x, 42) // add `let x = 42` in the body of the desugared if expression
 /// ]
 /// ```
-pub(crate) fn matcher(
+pub(crate) fn matcher<'de>(
     exp: &TypedExpression,
     scrutinee: TypedScrutinee,
     namespace: &mut Namespace,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let TypedScrutinee {
@@ -93,11 +93,11 @@ pub(crate) fn matcher(
     }
 }
 
-fn match_literal(
+fn match_literal<'de>(
     exp: &TypedExpression,
     scrutinee: Literal,
     span: Span,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let match_req_map = vec![(
         exp.to_owned(),
         TypedExpression {
@@ -111,21 +111,21 @@ fn match_literal(
     ok((match_req_map, match_decl_map), vec![], vec![])
 }
 
-fn match_variable(
+fn match_variable<'de>(
     exp: &TypedExpression,
     scrutinee_name: Ident,
     _span: Span,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let match_req_map = vec![];
     let match_decl_map = vec![(scrutinee_name, exp.to_owned())];
     ok((match_req_map, match_decl_map), vec![], vec![])
 }
 
-fn match_struct(
+fn match_struct<'de>(
     exp: &TypedExpression,
     fields: Vec<TypedStructScrutineeField>,
     namespace: &mut Namespace,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let mut match_req_map = vec![];
@@ -164,13 +164,13 @@ fn match_struct(
     ok((match_req_map, match_decl_map), warnings, errors)
 }
 
-fn match_enum(
+fn match_enum<'de>(
     exp: &TypedExpression,
     variant: TypedEnumVariant,
     scrutinee: TypedScrutinee,
     span: Span,
     namespace: &mut Namespace,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let (mut match_req_map, unsafe_downcast) = instantiate_unsafe_downcast(exp, variant, span);
@@ -184,12 +184,12 @@ fn match_enum(
     ok((match_req_map, match_decl_map), warnings, errors)
 }
 
-fn match_tuple(
+fn match_tuple<'de>(
     exp: &TypedExpression,
     elems: Vec<TypedScrutinee>,
     span: Span,
     namespace: &mut Namespace,
-) -> CompileResult<MatcherResult> {
+) -> CompileResult<MatcherResult<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let mut match_req_map = vec![];

@@ -42,10 +42,10 @@ impl TypedFunctionParameter {
         self.name.as_str() == "self"
     }
 
-    pub(crate) fn type_check(
+    pub(crate) fn type_check<'de>(
         mut ctx: TypeCheckContext,
         parameter: FunctionParameter,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<'de, Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let type_id = check!(

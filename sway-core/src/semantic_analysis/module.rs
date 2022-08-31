@@ -3,19 +3,19 @@ use crate::{error::*, parse_tree::*, semantic_analysis::*, type_system::*};
 use sway_types::{Ident, Spanned};
 
 #[derive(Clone, Debug)]
-pub struct TypedModule {
-    pub submodules: Vec<(DepName, TypedSubmodule)>,
-    pub namespace: namespace::Module,
-    pub all_nodes: Vec<TypedAstNode>,
+pub struct TypedModule<'de> {
+    pub submodules: Vec<(DepName, TypedSubmodule<'de>)>,
+    pub namespace: namespace::Module<'de>,
+    pub all_nodes: Vec<TypedAstNode<'de>>,
 }
 
 #[derive(Clone, Debug)]
-pub struct TypedSubmodule {
+pub struct TypedSubmodule<'de> {
     pub library_name: Ident,
-    pub module: TypedModule,
+    pub module: TypedModule<'de>,
 }
 
-impl TypedModule {
+impl TypedModule<'_> {
     /// Type-check the given parsed module to produce a typed module.
     ///
     /// Recursively type-checks submodules first.
@@ -55,10 +55,10 @@ impl TypedModule {
         })
     }
 
-    fn type_check_nodes(
+    fn type_check_nodes<'de>(
         mut ctx: TypeCheckContext,
         nodes: Vec<AstNode>,
-    ) -> CompileResult<Vec<TypedAstNode>> {
+    ) -> CompileResult<Vec<TypedAstNode<'de>>> {
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
         let typed_nodes = nodes
@@ -75,7 +75,7 @@ impl TypedModule {
     }
 }
 
-impl TypedSubmodule {
+impl TypedSubmodule<'_> {
     pub fn type_check(
         parent_ctx: TypeCheckContext,
         dep_name: DepName,

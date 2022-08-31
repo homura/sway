@@ -21,11 +21,11 @@ use sway_types::{ident::Ident, span::Spanned};
 
 use std::collections::HashMap;
 
-pub(crate) struct LookupEnv<'a> {
+pub(crate) struct LookupEnv<'a, 'de> {
     pub(crate) context: &'a mut Context,
     pub(crate) md_mgr: &'a mut MetadataManager,
     pub(crate) module: Module,
-    pub(crate) module_ns: Option<&'a namespace::Module>,
+    pub(crate) module_ns: Option<&'a namespace::Module<'de>>,
     pub(crate) lookup: fn(&mut LookupEnv, &Ident) -> Result<Option<Value>, CompileError>,
 }
 

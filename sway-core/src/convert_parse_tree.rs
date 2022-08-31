@@ -54,8 +54,8 @@ use {
 /// Contains any errors or warnings that were generated during the conversion into the parse tree.
 /// Typically these warnings and errors are populated as a side effect in the `From` and `Into`
 /// implementations of error types into [ErrorEmitted].
-pub struct ErrorContext {
-    pub(crate) warnings: Vec<CompileWarning>,
+pub struct ErrorContext<'de> {
+    pub(crate) warnings: Vec<CompileWarning<'de>>,
     pub(crate) errors: Vec<CompileError>,
 }
 
@@ -67,11 +67,11 @@ pub struct ErrorEmitted {
     _priv: (),
 }
 
-impl ErrorContext {
+impl<'de> ErrorContext<'de> {
     #[allow(dead_code)]
     pub fn warning<W>(&mut self, warning: W)
     where
-        W: Into<CompileWarning>,
+        W: Into<CompileWarning<'de>>,
     {
         self.warnings.push(warning.into());
     }
@@ -244,7 +244,7 @@ impl Spanned for ConvertParseTreeError {
     }
 }
 
-pub fn convert_parse_tree(module: Module) -> CompileResult<(TreeType, ParseTree)> {
+pub fn convert_parse_tree(module: Module) -> CompileResult<'static, (TreeType, ParseTree)> {
     let mut ec = ErrorContext {
         warnings: Vec::new(),
         errors: Vec::new(),
@@ -1045,7 +1045,7 @@ fn type_name_to_type_info_opt(name: &Ident) -> Option<TypeInfo> {
     }
 }
 
-fn ty_to_type_info(ec: &mut ErrorContext, ty: Ty) -> Result<TypeInfo, ErrorEmitted> {
+fn ty_to_type_info<'de>(ec: &mut ErrorContext, ty: Ty) -> Result<TypeInfo<'de>, ErrorEmitted> {
     let type_info = match ty {
         Ty::Path(path_type) => path_type_to_type_info(ec, path_type)?,
         Ty::Tuple(parenthesized_ty_tuple_descriptor) => {
@@ -2521,10 +2521,10 @@ fn literal_to_literal(
 /// Like [path_expr_to_call_path], but instead can potentially return type arguments.
 /// Use this when converting a call path that could potentially include type arguments, i.e. the
 /// turbofish.
-fn path_expr_to_call_path_binding(
+fn path_expr_to_call_path_binding<'de>(
     ec: &mut ErrorContext,
     path_expr: PathExpr,
-) -> Result<TypeBinding<CallPath<(TypeInfo, Span)>>, ErrorEmitted> {
+) -> Result<TypeBinding<CallPath<(TypeInfo<'de>, Span)>>, ErrorEmitted> {
     let PathExpr {
         root_opt,
         prefix,
@@ -3324,10 +3324,10 @@ fn ty_tuple_descriptor_to_type_arguments(
     Ok(type_arguments)
 }
 
-fn path_type_to_type_info(
+fn path_type_to_type_info<'de>(
     ec: &mut ErrorContext,
     path_type: PathType,
-) -> Result<TypeInfo, ErrorEmitted> {
+) -> Result<TypeInfo<'de>, ErrorEmitted> {
     let span = path_type.span();
     let PathType {
         root_opt,

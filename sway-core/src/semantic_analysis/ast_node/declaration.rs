@@ -16,29 +16,32 @@ pub use r#trait::*;
 pub use storage::*;
 pub use variable::*;
 
-use crate::{error::*, parse_tree::*, semantic_analysis::*, type_system::*};
+use crate::{
+    declaration_engine::declaration_id::DeclarationId, error::*, parse_tree::*,
+    semantic_analysis::*, type_system::*,
+};
 use derivative::Derivative;
 use std::{borrow::Cow, fmt};
 use sway_types::{Ident, Span, Spanned};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TypedDeclaration {
-    VariableDeclaration(TypedVariableDeclaration),
-    ConstantDeclaration(TypedConstantDeclaration),
-    FunctionDeclaration(TypedFunctionDeclaration),
+pub enum TypedDeclaration<'de> {
+    VariableDeclaration(TypedVariableDeclaration<'de>),
+    ConstantDeclaration(TypedConstantDeclaration<'de>),
+    FunctionDeclaration(TypedFunctionDeclaration<'de>),
     TraitDeclaration(TypedTraitDeclaration),
     StructDeclaration(TypedStructDeclaration),
     EnumDeclaration(TypedEnumDeclaration),
-    ImplTrait(TypedImplTrait),
+    ImplTrait(TypedImplTrait<'de>),
     AbiDeclaration(TypedAbiDeclaration),
     // If type parameters are defined for a function, they are put in the namespace just for
     // the body of that function.
     GenericTypeForFunctionScope { name: Ident, type_id: TypeId },
     ErrorRecovery,
-    StorageDeclaration(TypedStorageDeclaration),
+    StorageDeclaration(DeclarationId<'de>),
 }
 
-impl CopyTypes for TypedDeclaration {
+impl CopyTypes for TypedDeclaration<'_> {
     /// The entry point to monomorphizing typed declarations. Instantiates all new type ids,
     /// assuming `self` has already been copied.
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
@@ -60,7 +63,7 @@ impl CopyTypes for TypedDeclaration {
     }
 }
 
-impl Spanned for TypedDeclaration {
+impl Spanned for TypedDeclaration<'_> {
     fn span(&self) -> Span {
         use TypedDeclaration::*;
         match self {
@@ -80,7 +83,7 @@ impl Spanned for TypedDeclaration {
     }
 }
 
-impl fmt::Display for TypedDeclaration {
+impl fmt::Display for TypedDeclaration<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -127,7 +130,7 @@ impl fmt::Display for TypedDeclaration {
     }
 }
 
-impl UnresolvedTypeCheck for TypedDeclaration {
+impl UnresolvedTypeCheck for TypedDeclaration<'_> {
     // this is only run on entry nodes, which must have all well-formed types
     fn check_for_unresolved_types(&self) -> Vec<CompileError> {
         use TypedDeclaration::*;
@@ -178,7 +181,7 @@ impl UnresolvedTypeCheck for TypedDeclaration {
     }
 }
 
-impl TypedDeclaration {
+impl TypedDeclaration<'_> {
     /// Retrieves the declaration as an enum declaration.
     ///
     /// Returns an error if `self` is not a `TypedEnumDeclaration`.
@@ -345,13 +348,13 @@ impl TypedDeclaration {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypedConstantDeclaration {
+pub struct TypedConstantDeclaration<'de> {
     pub name: Ident,
-    pub value: TypedExpression,
+    pub value: TypedExpression<'de>,
     pub(crate) visibility: Visibility,
 }
 
-impl CopyTypes for TypedConstantDeclaration {
+impl CopyTypes for TypedConstantDeclaration<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.value.copy_types(type_mapping);
     }
@@ -440,16 +443,16 @@ impl ProjectionKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypedReassignment {
+pub struct TypedReassignment<'de> {
     // either a direct variable, so length of 1, or
     // at series of struct fields/array indices (array syntax)
     pub lhs_base_name: Ident,
     pub lhs_type: TypeId,
     pub lhs_indices: Vec<ProjectionKind>,
-    pub rhs: TypedExpression,
+    pub rhs: TypedExpression<'de>,
 }
 
-impl CopyTypes for TypedReassignment {
+impl CopyTypes for TypedReassignment<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.rhs.copy_types(type_mapping);
         self.lhs_type

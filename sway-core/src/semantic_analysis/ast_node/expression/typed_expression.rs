@@ -25,8 +25,8 @@ use std::{
 };
 
 #[derive(Clone, Debug, Eq)]
-pub struct TypedExpression {
-    pub expression: TypedExpressionVariant,
+pub struct TypedExpression<'de> {
+    pub expression: TypedExpressionVariant<'de>,
     pub return_type: TypeId,
     /// whether or not this expression is constantly evaluable (if the result is known at compile
     /// time)
@@ -37,7 +37,7 @@ pub struct TypedExpression {
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypedExpression {
+impl PartialEq for TypedExpression<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.expression == other.expression
             && look_up_type_id(self.return_type) == look_up_type_id(other.return_type)
@@ -45,14 +45,14 @@ impl PartialEq for TypedExpression {
     }
 }
 
-impl CopyTypes for TypedExpression {
+impl CopyTypes for TypedExpression<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.return_type.update_type(type_mapping, &self.span);
         self.expression.copy_types(type_mapping);
     }
 }
 
-impl fmt::Display for TypedExpression {
+impl fmt::Display for TypedExpression<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -63,7 +63,7 @@ impl fmt::Display for TypedExpression {
     }
 }
 
-impl UnresolvedTypeCheck for TypedExpression {
+impl UnresolvedTypeCheck for TypedExpression<'_> {
     fn check_for_unresolved_types(&self) -> Vec<CompileError> {
         use TypedExpressionVariant::*;
         let mut res = self.return_type.check_for_unresolved_types();
@@ -242,7 +242,7 @@ impl UnresolvedTypeCheck for TypedExpression {
     }
 }
 
-impl DeterministicallyAborts for TypedExpression {
+impl DeterministicallyAborts for TypedExpression<'_> {
     fn deterministically_aborts(&self) -> bool {
         use TypedExpressionVariant::*;
         match &self.expression {
@@ -322,7 +322,7 @@ impl DeterministicallyAborts for TypedExpression {
     }
 }
 
-pub(crate) fn error_recovery_expr(span: Span) -> TypedExpression {
+pub(crate) fn error_recovery_expr(span: Span) -> TypedExpression<'static> {
     TypedExpression {
         expression: TypedExpressionVariant::Tuple { fields: vec![] },
         return_type: crate::type_system::insert_type(TypeInfo::ErrorRecovery),
@@ -332,12 +332,12 @@ pub(crate) fn error_recovery_expr(span: Span) -> TypedExpression {
 }
 
 #[allow(clippy::too_many_arguments)]
-impl TypedExpression {
+impl TypedExpression<'_> {
     pub(crate) fn core_ops_eq(
         ctx: TypeCheckContext,
         arguments: Vec<TypedExpression>,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let call_path = CallPath {
@@ -686,7 +686,7 @@ impl TypedExpression {
         ok(typed_expression, warnings, errors)
     }
 
-    fn type_check_literal(lit: Literal, span: Span) -> CompileResult<TypedExpression> {
+    fn type_check_literal(lit: Literal, span: Span) -> CompileResult<Self> {
         let return_type = match &lit {
             Literal::String(s) => TypeInfo::Str(s.as_str().len() as u64),
             Literal::Numeric(_) => TypeInfo::Numeric,
@@ -712,7 +712,7 @@ impl TypedExpression {
         namespace: &Namespace,
         name: Ident,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut errors = vec![];
         let exp = match namespace.resolve_symbol(&name).value {
             Some(TypedDeclaration::VariableDeclaration(TypedVariableDeclaration {
@@ -776,7 +776,7 @@ impl TypedExpression {
         mut call_path_binding: TypeBinding<CallPath>,
         arguments: Vec<Expression>,
         _span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -805,7 +805,7 @@ impl TypedExpression {
         lhs: Expression,
         rhs: Expression,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let mut ctx = ctx.with_help_text("");
@@ -832,7 +832,7 @@ impl TypedExpression {
         mut ctx: TypeCheckContext,
         contents: CodeBlock,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let (typed_block, block_return_type) = check!(
@@ -867,7 +867,7 @@ impl TypedExpression {
         then: Expression,
         r#else: Option<Expression>,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let condition = {
@@ -927,7 +927,7 @@ impl TypedExpression {
         value: Expression,
         branches: Vec<MatchBranch>,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -1008,7 +1008,7 @@ impl TypedExpression {
         mut ctx: TypeCheckContext,
         asm: AsmExpression,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let asm_span = asm
@@ -1073,7 +1073,7 @@ impl TypedExpression {
         call_path_binding: TypeBinding<CallPath<(TypeInfo, Span)>>,
         fields: Vec<StructExpressionField>,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -1169,7 +1169,7 @@ impl TypedExpression {
         prefix: Expression,
         span: Span,
         field_to_access: Ident,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let ctx = ctx
@@ -1290,7 +1290,7 @@ impl TypedExpression {
         index: usize,
         index_span: Span,
         span: Span,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let ctx = ctx
@@ -1316,7 +1316,7 @@ impl TypedExpression {
         call_path_binding: TypeBinding<CallPath>,
         span: Span,
         args: Vec<Expression>,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -1893,11 +1893,7 @@ impl TypedExpression {
         }
     }
 
-    fn resolve_numeric_literal(
-        lit: Literal,
-        span: Span,
-        new_type: TypeId,
-    ) -> CompileResult<TypedExpression> {
+    fn resolve_numeric_literal(lit: Literal, span: Span, new_type: TypeId) -> CompileResult<Self> {
         let mut errors = vec![];
 
         // Parse and resolve a Numeric(span) based on new_type.
@@ -1985,7 +1981,10 @@ mod tests {
 
     use super::*;
 
-    fn do_type_check(expr: Expression, type_annotation: TypeId) -> CompileResult<TypedExpression> {
+    fn do_type_check(
+        expr: Expression,
+        type_annotation: TypeId,
+    ) -> CompileResult<TypedExpression<'static>> {
         let mut declaration_engine = DeclarationEngine::new();
         let mut namespace = Namespace::init_root(namespace::Module::default());
         let ctx = TypeCheckContext::from_root(&mut namespace, &mut declaration_engine)
@@ -1993,7 +1992,7 @@ mod tests {
         TypedExpression::type_check(ctx, expr)
     }
 
-    fn do_type_check_for_boolx2(expr: Expression) -> CompileResult<TypedExpression> {
+    fn do_type_check_for_boolx2(expr: Expression) -> CompileResult<TypedExpression<'static>> {
         do_type_check(
             expr,
             insert_type(TypeInfo::Array(

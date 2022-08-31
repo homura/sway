@@ -7,25 +7,25 @@ use super::{namespace::Namespace, PathBuf};
 /// represent the submodule's path. When dropped, the `SubmoduleNamespace` reset's the
 /// `Namespace`'s `mod_path` to the parent module path so that type-checking of the parent may
 /// continue.
-pub struct SubmoduleNamespace<'a> {
-    pub(crate) namespace: &'a mut Namespace,
+pub struct SubmoduleNamespace<'a, 'de> {
+    pub(crate) namespace: &'a mut Namespace<'de>,
     pub(crate) parent_mod_path: PathBuf,
 }
 
-impl<'a> std::ops::Deref for SubmoduleNamespace<'a> {
-    type Target = Namespace;
+impl<'a, 'de> std::ops::Deref for SubmoduleNamespace<'a, 'de> {
+    type Target = Namespace<'de>;
     fn deref(&self) -> &Self::Target {
         self.namespace
     }
 }
 
-impl<'a> std::ops::DerefMut for SubmoduleNamespace<'a> {
+impl<'a, 'de> std::ops::DerefMut for SubmoduleNamespace<'a, 'de> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.namespace
     }
 }
 
-impl<'a> Drop for SubmoduleNamespace<'a> {
+impl<'a, 'de> Drop for SubmoduleNamespace<'a, 'de> {
     fn drop(&mut self) {
         // Replace the submodule path with the original module path.
         // This ensures that the namespace's module path is reset when ownership over it is

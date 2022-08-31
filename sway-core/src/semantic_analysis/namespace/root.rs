@@ -17,12 +17,12 @@ use std::collections::VecDeque;
 /// canonical paths, or that use canonical paths internally, are *only* called from the root. This
 /// normally includes methods that first lookup some canonical path via `use_synonyms` before using
 /// that canonical path to look up the symbol declaration.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Root {
-    pub(crate) module: Module,
+#[derive(Clone, Debug)]
+pub struct Root<'de> {
+    pub(crate) module: Module<'de>,
 }
 
-impl Root {
+impl Root<'_> {
     /// Resolve a symbol that is potentially prefixed with some path, e.g. `foo::bar::symbol`.
     ///
     /// This is short-hand for concatenating the `mod_path` with the `call_path`'s prefixes and
@@ -264,26 +264,26 @@ impl Root {
     }
 }
 
-impl std::ops::Deref for Root {
-    type Target = Module;
+impl<'de> std::ops::Deref for Root<'de> {
+    type Target = Module<'de>;
     fn deref(&self) -> &Self::Target {
         &self.module
     }
 }
 
-impl std::ops::DerefMut for Root {
+impl std::ops::DerefMut for Root<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.module
     }
 }
 
-impl From<Module> for Root {
+impl From<Module<'_>> for Root<'_> {
     fn from(module: Module) -> Self {
         Root { module }
     }
 }
 
-impl From<Namespace> for Root {
+impl From<Namespace<'_>> for Root<'_> {
     fn from(namespace: Namespace) -> Self {
         namespace.root
     }

@@ -19,14 +19,14 @@ use sway_ir::{Context, Module};
 use sway_types::{span::Span, Ident, JsonABI, JsonABIProgram, JsonTypeDeclaration, Spanned};
 
 #[derive(Debug)]
-pub struct TypedProgram {
-    pub kind: TypedProgramKind,
-    pub root: TypedModule,
+pub struct TypedProgram<'de> {
+    pub kind: TypedProgramKind<'de>,
+    pub root: TypedModule<'de>,
     pub storage_slots: Vec<StorageSlot>,
-    pub declaration_engine: DeclarationEngine,
+    pub declaration_engine: DeclarationEngine<'de>,
 }
 
-impl TypedProgram {
+impl<'de> TypedProgram<'de> {
     /// Type-check the given parsed program to produce a typed program.
     ///
     /// The given `initial_namespace` acts as an initial state for each module within this program.
@@ -57,7 +57,7 @@ impl TypedProgram {
         root: &TypedModule,
         kind: TreeType,
         module_span: Span,
-    ) -> CompileResult<TypedProgramKind> {
+    ) -> CompileResult<TypedProgramKind<'de>> {
         // Extract program-kind-specific properties from the root nodes.
         let mut errors = vec![];
         let mut warnings = vec![];
@@ -318,25 +318,25 @@ impl TypedProgram {
 }
 
 #[derive(Clone, Debug)]
-pub enum TypedProgramKind {
+pub enum TypedProgramKind<'de> {
     Contract {
-        abi_entries: Vec<TypedFunctionDeclaration>,
-        declarations: Vec<TypedDeclaration>,
+        abi_entries: Vec<TypedFunctionDeclaration<'de>>,
+        declarations: Vec<TypedDeclaration<'de>>,
     },
     Library {
         name: Ident,
     },
     Predicate {
-        main_function: TypedFunctionDeclaration,
-        declarations: Vec<TypedDeclaration>,
+        main_function: TypedFunctionDeclaration<'de>,
+        declarations: Vec<TypedDeclaration<'de>>,
     },
     Script {
-        main_function: TypedFunctionDeclaration,
-        declarations: Vec<TypedDeclaration>,
+        main_function: TypedFunctionDeclaration<'de>,
+        declarations: Vec<TypedDeclaration<'de>>,
     },
 }
 
-impl ToJsonAbi for TypedProgramKind {
+impl ToJsonAbi for TypedProgramKind<'_> {
     type Output = JsonABI;
 
     // TODO: Update this to match behaviour described in the `compile` doc comment above.
@@ -353,7 +353,7 @@ impl ToJsonAbi for TypedProgramKind {
     }
 }
 
-impl TypedProgramKind {
+impl TypedProgramKind<'_> {
     /// The parse tree type associated with this program kind.
     pub fn tree_type(&self) -> TreeType {
         match self {

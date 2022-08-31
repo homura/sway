@@ -15,14 +15,14 @@ use crate::{
 use super::matcher::{matcher, MatchReqMap};
 
 #[derive(Debug)]
-pub(crate) struct TypedMatchBranch {
-    pub(crate) conditions: MatchReqMap,
-    pub(crate) result: TypedExpression,
+pub(crate) struct TypedMatchBranch<'de> {
+    pub(crate) conditions: MatchReqMap<'de>,
+    pub(crate) result: TypedExpression<'de>,
     #[allow(dead_code)]
     span: Span,
 }
 
-impl TypedMatchBranch {
+impl TypedMatchBranch<'_> {
     pub(crate) fn type_check(
         mut ctx: TypeCheckContext,
         typed_value: &TypedExpression,

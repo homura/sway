@@ -30,16 +30,16 @@ pub(crate) enum IsConstant {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TypedAstNodeContent {
-    ReturnStatement(TypedReturnStatement),
-    Declaration(TypedDeclaration),
-    Expression(TypedExpression),
-    ImplicitReturnExpression(TypedExpression),
+pub enum TypedAstNodeContent<'de> {
+    ReturnStatement(TypedReturnStatement<'de>),
+    Declaration(TypedDeclaration<'de>),
+    Expression(TypedExpression<'de>),
+    ImplicitReturnExpression(TypedExpression<'de>),
     // a no-op node used for something that just issues a side effect, like an import statement.
     SideEffect,
 }
 
-impl UnresolvedTypeCheck for TypedAstNodeContent {
+impl UnresolvedTypeCheck for TypedAstNodeContent<'_> {
     fn check_for_unresolved_types(&self) -> Vec<CompileError> {
         use TypedAstNodeContent::*;
         match self {
@@ -54,13 +54,13 @@ impl UnresolvedTypeCheck for TypedAstNodeContent {
 
 #[derive(Clone, Debug, Eq, Derivative)]
 #[derivative(PartialEq)]
-pub struct TypedAstNode {
-    pub content: TypedAstNodeContent,
+pub struct TypedAstNode<'de> {
+    pub content: TypedAstNodeContent<'de>,
     #[derivative(PartialEq = "ignore")]
     pub(crate) span: Span,
 }
 
-impl fmt::Display for TypedAstNode {
+impl fmt::Display for TypedAstNode<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use TypedAstNodeContent::*;
         let text = match &self.content {
@@ -76,7 +76,7 @@ impl fmt::Display for TypedAstNode {
     }
 }
 
-impl CopyTypes for TypedAstNode {
+impl CopyTypes for TypedAstNode<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         match self.content {
             TypedAstNodeContent::ReturnStatement(ref mut ret_stmt) => {
@@ -92,13 +92,13 @@ impl CopyTypes for TypedAstNode {
     }
 }
 
-impl UnresolvedTypeCheck for TypedAstNode {
+impl UnresolvedTypeCheck for TypedAstNode<'_> {
     fn check_for_unresolved_types(&self) -> Vec<CompileError> {
         self.content.check_for_unresolved_types()
     }
 }
 
-impl DeterministicallyAborts for TypedAstNode {
+impl DeterministicallyAborts for TypedAstNode<'_> {
     fn deterministically_aborts(&self) -> bool {
         use TypedAstNodeContent::*;
         match &self.content {
@@ -110,7 +110,7 @@ impl DeterministicallyAborts for TypedAstNode {
     }
 }
 
-impl TypedAstNode {
+impl TypedAstNode<'_> {
     /// Returns `true` if this AST node will be exported in a library, i.e. it is a public declaration.
     pub(crate) fn is_public(&self) -> bool {
         use TypedAstNodeContent::*;
@@ -568,10 +568,10 @@ fn type_check_interface_surface(
     ok(interface_surface, warnings, errors)
 }
 
-fn type_check_trait_methods(
+fn type_check_trait_methods<'de>(
     mut ctx: TypeCheckContext,
     methods: Vec<FunctionDeclaration>,
-) -> CompileResult<Vec<TypedFunctionDeclaration>> {
+) -> CompileResult<Vec<TypedFunctionDeclaration<'de>>> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let mut methods_buf = Vec::new();
@@ -745,7 +745,9 @@ fn type_check_trait_methods(
 
 /// Used to create a stubbed out function when the function fails to compile, preventing cascading
 /// namespace errors
-fn error_recovery_function_declaration(decl: FunctionDeclaration) -> TypedFunctionDeclaration {
+fn error_recovery_function_declaration(
+    decl: FunctionDeclaration,
+) -> TypedFunctionDeclaration<'static> {
     let FunctionDeclaration {
         name,
         return_type,
@@ -774,13 +776,13 @@ fn error_recovery_function_declaration(decl: FunctionDeclaration) -> TypedFuncti
 
 /// Describes each field being drilled down into in storage and its type.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypeCheckedStorageReassignment {
+pub struct TypeCheckedStorageReassignment<'de> {
     pub fields: Vec<TypeCheckedStorageReassignDescriptor>,
     pub(crate) ix: StateIndex,
-    pub rhs: TypedExpression,
+    pub rhs: TypedExpression<'de>,
 }
 
-impl Spanned for TypeCheckedStorageReassignment {
+impl Spanned for TypeCheckedStorageReassignment<'_> {
     fn span(&self) -> Span {
         self.fields
             .iter()
@@ -790,7 +792,7 @@ impl Spanned for TypeCheckedStorageReassignment {
     }
 }
 
-impl TypeCheckedStorageReassignment {
+impl TypeCheckedStorageReassignment<'_> {
     pub fn names(&self) -> Vec<Ident> {
         self.fields
             .iter()
@@ -817,12 +819,12 @@ impl PartialEq for TypeCheckedStorageReassignDescriptor {
     }
 }
 
-pub(crate) fn reassign_storage_subfield(
+pub(crate) fn reassign_storage_subfield<'de>(
     ctx: TypeCheckContext,
     fields: Vec<Ident>,
     rhs: Expression,
     span: Span,
-) -> CompileResult<TypeCheckedStorageReassignment> {
+) -> CompileResult<TypeCheckedStorageReassignment<'de>> {
     let mut errors = vec![];
     let mut warnings = vec![];
     if !ctx.namespace.has_storage_declared() {

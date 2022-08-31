@@ -2,11 +2,11 @@ use super::*;
 use crate::CodeBlock;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypedCodeBlock {
-    pub contents: Vec<TypedAstNode>,
+pub struct TypedCodeBlock<'de> {
+    pub contents: Vec<TypedAstNode<'de>>,
 }
 
-impl CopyTypes for TypedCodeBlock {
+impl CopyTypes for TypedCodeBlock<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.contents
             .iter_mut()
@@ -14,13 +14,13 @@ impl CopyTypes for TypedCodeBlock {
     }
 }
 
-impl DeterministicallyAborts for TypedCodeBlock {
+impl DeterministicallyAborts for TypedCodeBlock<'_> {
     fn deterministically_aborts(&self) -> bool {
         self.contents.iter().any(|x| x.deterministically_aborts())
     }
 }
 
-impl TypedCodeBlock {
+impl TypedCodeBlock<'_> {
     pub(crate) fn type_check(
         mut ctx: TypeCheckContext,
         code_block: CodeBlock,

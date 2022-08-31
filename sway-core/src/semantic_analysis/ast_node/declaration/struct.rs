@@ -61,10 +61,10 @@ impl MonomorphizeHelper for TypedStructDeclaration {
 }
 
 impl TypedStructDeclaration {
-    pub(crate) fn type_check(
+    pub(crate) fn type_check<'de>(
         ctx: TypeCheckContext,
         decl: StructDeclaration,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<'de, Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -198,7 +198,10 @@ impl ReplaceSelfType for TypedStructField {
 }
 
 impl TypedStructField {
-    pub(crate) fn type_check(mut ctx: TypeCheckContext, field: StructField) -> CompileResult<Self> {
+    pub(crate) fn type_check<'de>(
+        mut ctx: TypeCheckContext,
+        field: StructField,
+    ) -> CompileResult<'de, Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
         let initial_type_id = insert_type(field.type_info);

@@ -5,13 +5,13 @@ use sway_types::{Ident, Spanned};
 /// Given an enum declaration and the instantiation expression/type arguments, construct a valid
 /// [TypedExpression].
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn instantiate_enum(
+pub(crate) fn instantiate_enum<'de>(
     ctx: TypeCheckContext,
     enum_decl: TypedEnumDeclaration,
     enum_name: Ident,
     enum_variant_name: Ident,
     args: Vec<Expression>,
-) -> CompileResult<TypedExpression> {
+) -> CompileResult<TypedExpression<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 

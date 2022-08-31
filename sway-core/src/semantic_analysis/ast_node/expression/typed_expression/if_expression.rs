@@ -4,14 +4,14 @@ use crate::{error::*, semantic_analysis::*, type_system::*, types::Deterministic
 
 use super::TypedExpression;
 
-pub(crate) fn instantiate_if_expression(
+pub(crate) fn instantiate_if_expression<'de>(
     condition: TypedExpression,
     then: TypedExpression,
     r#else: Option<TypedExpression>,
     span: Span,
     type_annotation: TypeId,
     self_type: TypeId,
-) -> CompileResult<TypedExpression> {
+) -> CompileResult<TypedExpression<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 

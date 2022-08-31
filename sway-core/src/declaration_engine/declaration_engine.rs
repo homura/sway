@@ -12,15 +12,15 @@ use super::{declaration_id::DeclarationId, declaration_wrapper::DeclarationWrapp
 
 /// Used inside of type inference to store declarations.
 #[derive(Debug)]
-pub struct DeclarationEngine {
-    slab: ConcurrentSlab<DeclarationId, DeclarationWrapper>,
+pub struct DeclarationEngine<'de> {
+    slab: ConcurrentSlab<DeclarationWrapper<'de>>,
     // *declaration_id -> vec of monomorphized copies
     // where the declaration_id is the original declaration
-    monomorphized_copies: HashMap<usize, Vec<DeclarationId>>,
+    monomorphized_copies: HashMap<usize, Vec<DeclarationId<'de>>>,
 }
 
-impl DeclarationEngine {
-    pub(crate) fn new() -> DeclarationEngine {
+impl<'de> DeclarationEngine<'de> {
+    pub(crate) fn new() -> DeclarationEngine<'de> {
         DeclarationEngine {
             slab: ConcurrentSlab::default(),
             monomorphized_copies: HashMap::new(),

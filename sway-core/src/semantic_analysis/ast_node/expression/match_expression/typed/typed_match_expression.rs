@@ -15,14 +15,14 @@ use crate::{
 use super::typed_match_branch::TypedMatchBranch;
 
 #[derive(Debug)]
-pub(crate) struct TypedMatchExpression {
-    branches: Vec<TypedMatchBranch>,
+pub(crate) struct TypedMatchExpression<'de> {
+    branches: Vec<TypedMatchBranch<'de>>,
     return_type_id: TypeId,
     #[allow(dead_code)]
     span: Span,
 }
 
-impl TypedMatchExpression {
+impl<'de> TypedMatchExpression<'de> {
     pub(crate) fn type_check(
         ctx: TypeCheckContext,
         typed_value: TypedExpression,
@@ -61,7 +61,7 @@ impl TypedMatchExpression {
     pub(crate) fn convert_to_typed_if_expression(
         self,
         mut ctx: TypeCheckContext,
-    ) -> CompileResult<TypedExpression> {
+    ) -> CompileResult<TypedExpression<'de>> {
         let mut warnings = vec![];
         let mut errors = vec![];
 

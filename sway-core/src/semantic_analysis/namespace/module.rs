@@ -29,8 +29,8 @@ use sway_types::{span::Span, ConfigTimeConstant, Spanned};
 ///
 /// A `Module` contains a set of all items that exist within the lexical scope via declaration or
 /// importing, along with a map of each of its submodules.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Module {
+#[derive(Clone, Debug, Default)]
+pub struct Module<'de> {
     /// Submodules of the current module represented as an ordered map from each submodule's name
     /// to the associated `Module`.
     ///
@@ -38,12 +38,12 @@ pub struct Module {
     /// some library dependency that we include as a submodule.
     ///
     /// Note that we *require* this map to be ordered to produce deterministic codegen results.
-    pub(crate) submodules: im::OrdMap<ModuleName, Module>,
+    pub(crate) submodules: im::OrdMap<ModuleName, Module<'de>>,
     /// The set of symbols, implementations, synonyms and aliases present within this module.
-    items: Items,
+    items: Items<'de>,
 }
 
-impl Module {
+impl Module<'_> {
     pub fn default_with_constants(
         constants: BTreeMap<String, ConfigTimeConstant>,
     ) -> Result<Self, vec1::Vec1<CompileError>> {
@@ -328,35 +328,35 @@ impl Module {
     }
 }
 
-impl std::ops::Deref for Module {
-    type Target = Items;
+impl<'de> std::ops::Deref for Module<'de> {
+    type Target = Items<'de>;
     fn deref(&self) -> &Self::Target {
         &self.items
     }
 }
 
-impl std::ops::DerefMut for Module {
+impl std::ops::DerefMut for Module<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.items
     }
 }
 
-impl<'a> std::ops::Index<&'a Path> for Module {
-    type Output = Module;
+impl<'a, 'de> std::ops::Index<&'a Path> for Module<'de> {
+    type Output = Module<'de>;
     fn index(&self, path: &'a Path) -> &Self::Output {
         self.submodule(path)
             .unwrap_or_else(|| panic!("no module for the given path {:?}", path))
     }
 }
 
-impl<'a> std::ops::IndexMut<&'a Path> for Module {
+impl<'a> std::ops::IndexMut<&'a Path> for Module<'_> {
     fn index_mut(&mut self, path: &'a Path) -> &mut Self::Output {
         self.submodule_mut(path)
             .unwrap_or_else(|| panic!("no module for the given path {:?}", path))
     }
 }
 
-impl From<Root> for Module {
+impl From<Root<'_>> for Module<'_> {
     fn from(root: Root) -> Self {
         root.module
     }

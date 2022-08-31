@@ -27,15 +27,15 @@ type TraitName = CallPath;
 // However, we need this structure to be able to maintain the
 // difference between 3 and 4, as in practice, 1 and 2 might not yet
 // be resolved.
-type TraitMapInner = im::Vector<((TraitName, TypeId), TraitMethods)>;
-type TraitMethods = im::HashMap<String, TypedFunctionDeclaration>;
+type TraitMapInner<'de> = im::Vector<((TraitName, TypeId), TraitMethods<'de>)>;
+type TraitMethods<'de> = im::HashMap<String, TypedFunctionDeclaration<'de>>;
 
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct TraitMap {
-    trait_map: TraitMapInner,
+#[derive(Clone, Debug, Default)]
+pub(crate) struct TraitMap<'de> {
+    trait_map: TraitMapInner<'de>,
 }
 
-impl TraitMap {
+impl TraitMap<'_> {
     pub(crate) fn insert(
         &mut self,
         trait_name: TraitName,

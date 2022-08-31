@@ -19,15 +19,15 @@ use crate::{
 use super::TypedTraitFn;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TypedImplTrait {
+pub struct TypedImplTrait<'de> {
     pub trait_name: CallPath,
     pub(crate) span: Span,
-    pub methods: Vec<TypedFunctionDeclaration>,
+    pub methods: Vec<TypedFunctionDeclaration<'de>>,
     pub implementing_for_type_id: TypeId,
     pub type_implementing_for_span: Span,
 }
 
-impl CopyTypes for TypedImplTrait {
+impl CopyTypes for TypedImplTrait<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.methods
             .iter_mut()
@@ -35,11 +35,11 @@ impl CopyTypes for TypedImplTrait {
     }
 }
 
-impl TypedImplTrait {
+impl<'de> TypedImplTrait<'de> {
     pub(crate) fn type_check_impl_trait(
         ctx: TypeCheckContext,
         impl_trait: ImplTrait,
-    ) -> CompileResult<(Self, TypeId)> {
+    ) -> CompileResult<'de, (Self, TypeId)> {
         let mut errors = vec![];
         let mut warnings = vec![];
 
@@ -307,7 +307,7 @@ impl TypedImplTrait {
     pub(crate) fn type_check_impl_self(
         ctx: TypeCheckContext,
         impl_self: ImplSelf,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<'de, Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 
@@ -399,7 +399,7 @@ impl TypedImplTrait {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn type_check_trait_implementation(
+fn type_check_trait_implementation<'de>(
     mut ctx: TypeCheckContext,
     trait_interface_surface: &[TypedTraitFn],
     trait_methods: &[FunctionDeclaration],
@@ -407,7 +407,7 @@ fn type_check_trait_implementation(
     trait_name: &CallPath,
     self_type_span: &Span,
     block_span: &Span,
-) -> CompileResult<Vec<TypedFunctionDeclaration>> {
+) -> CompileResult<'de, Vec<TypedFunctionDeclaration<'de>>> {
     let mut errors = vec![];
     let mut warnings = vec![];
 
@@ -605,11 +605,11 @@ fn type_check_trait_implementation(
     ok(functions_buf, warnings, errors)
 }
 
-fn check_for_unconstrained_type_parameters(
+fn check_for_unconstrained_type_parameters<'de>(
     type_parameters: &[TypeParameter],
     self_type: TypeId,
     self_type_span: &Span,
-) -> CompileResult<()> {
+) -> CompileResult<'de, ()> {
     let mut warnings = vec![];
     let mut errors = vec![];
 

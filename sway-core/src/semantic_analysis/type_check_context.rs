@@ -21,10 +21,10 @@ pub struct TypeCheckContext<'ns, 'de> {
     /// - The `init` module used to initialise submodule namespaces.
     /// - A `mod_path` that represents the current module being type-checked. This is automatically
     ///   updated upon entering/exiting submodules via the `enter_submodule` method.
-    pub(crate) namespace: &'ns mut Namespace,
+    pub(crate) namespace: &'ns mut Namespace<'de>,
 
     /// The declaration engine used during type checking
-    pub(crate) declaration_engine: &'de mut DeclarationEngine,
+    pub(crate) declaration_engine: &'de mut DeclarationEngine<'de>,
 
     // The following set of fields are intentionally private. When a `TypeCheckContext` is passed
     // into a new node during type checking, these fields should be updated using the `with_*`

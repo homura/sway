@@ -11,13 +11,13 @@ lazy_static! {
 
 #[derive(Debug, Default)]
 pub(crate) struct TypeEngine {
-    slab: ConcurrentSlab<TypeId, TypeInfo>,
-    storage_only_types: ConcurrentSlab<TypeId, TypeInfo>,
+    slab: ConcurrentSlab<TypeInfo>,
+    storage_only_types: ConcurrentSlab<TypeInfo>,
 }
 
 impl TypeEngine {
     pub fn insert_type(&self, ty: TypeInfo) -> TypeId {
-        self.slab.insert(ty)
+        TypeId::new(self.slab.insert(ty))
     }
 
     pub fn look_up_type_id_raw(&self, id: TypeId) -> TypeInfo {

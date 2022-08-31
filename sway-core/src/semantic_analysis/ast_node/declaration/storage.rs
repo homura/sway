@@ -18,20 +18,20 @@ use sway_types::{state::StateIndex, Span, Spanned};
 
 #[derive(Clone, Debug, Derivative)]
 #[derivative(PartialEq, Eq)]
-pub struct TypedStorageDeclaration {
-    pub fields: Vec<TypedStorageField>,
+pub struct TypedStorageDeclaration<'de> {
+    pub fields: Vec<TypedStorageField<'de>>,
     #[derivative(PartialEq = "ignore")]
     #[derivative(Eq(bound = ""))]
     pub span: Span,
 }
 
-impl Spanned for TypedStorageDeclaration {
+impl Spanned for TypedStorageDeclaration<'_> {
     fn span(&self) -> Span {
         self.span.clone()
     }
 }
 
-impl TypedStorageDeclaration {
+impl TypedStorageDeclaration<'_> {
     pub fn new(fields: Vec<TypedStorageField>, span: Span) -> Self {
         TypedStorageDeclaration { fields, span }
     }
@@ -177,18 +177,18 @@ impl TypedStorageDeclaration {
 }
 
 #[derive(Clone, Debug, Eq)]
-pub struct TypedStorageField {
+pub struct TypedStorageField<'de> {
     pub name: Ident,
     pub type_id: TypeId,
     pub type_span: Span,
-    pub initializer: TypedExpression,
+    pub initializer: TypedExpression<'de>,
     pub(crate) span: Span,
 }
 
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypedStorageField {
+impl PartialEq for TypedStorageField<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && look_up_type_id(self.type_id) == look_up_type_id(other.type_id)
@@ -196,7 +196,7 @@ impl PartialEq for TypedStorageField {
     }
 }
 
-impl TypedStorageField {
+impl TypedStorageField<'_> {
     pub fn new(
         name: Ident,
         r#type: TypeId,

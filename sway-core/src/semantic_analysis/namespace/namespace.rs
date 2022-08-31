@@ -10,8 +10,8 @@ use sway_types::span::Span;
 use std::collections::VecDeque;
 
 /// The set of items that represent the namespace context passed throughout type checking.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Namespace {
+#[derive(Clone, Debug)]
+pub struct Namespace<'de> {
     /// An immutable namespace that consists of the names that should always be present, no matter
     /// what module or scope we are currently checking.
     ///
@@ -19,13 +19,13 @@ pub struct Namespace {
     ///
     /// This is passed through type-checking in order to initialise the namespace of each submodule
     /// within the project.
-    init: Module,
+    init: Module<'de>,
     /// The `root` of the project namespace.
     ///
     /// From the root, the entirety of the project's namespace can always be accessed.
     ///
     /// The root is initialised from the `init` namespace before type-checking begins.
-    pub(crate) root: Root,
+    pub(crate) root: Root<'de>,
     /// An absolute path from the `root` that represents the current module being checked.
     ///
     /// E.g. when type-checking the root module, this is equal to `[]`. When type-checking a
@@ -33,7 +33,7 @@ pub struct Namespace {
     pub(crate) mod_path: PathBuf,
 }
 
-impl Namespace {
+impl Namespace<'_> {
     /// Initialise the namespace at its root from the given initial namespace.
     pub fn init_root(init: Module) -> Self {
         let root = Root::from(init.clone());
@@ -194,14 +194,14 @@ impl Namespace {
     }
 }
 
-impl std::ops::Deref for Namespace {
-    type Target = Module;
+impl<'de> std::ops::Deref for Namespace<'de> {
+    type Target = Module<'de>;
     fn deref(&self) -> &Self::Target {
         self.module()
     }
 }
 
-impl std::ops::DerefMut for Namespace {
+impl std::ops::DerefMut for Namespace<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.module_mut()
     }

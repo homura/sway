@@ -8,13 +8,13 @@ use crate::{
 
 use super::TypedExpression;
 
-pub(crate) fn instantiate_lazy_operator(
+pub(crate) fn instantiate_lazy_operator<'de>(
     op: LazyOp,
     lhs: TypedExpression,
     rhs: TypedExpression,
     return_type: TypeId,
     span: Span,
-) -> TypedExpression {
+) -> TypedExpression<'de> {
     TypedExpression {
         expression: TypedExpressionVariant::LazyOperator {
             op,

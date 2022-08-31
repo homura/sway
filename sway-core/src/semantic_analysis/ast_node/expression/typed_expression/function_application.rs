@@ -6,12 +6,12 @@ use std::collections::{hash_map::RandomState, HashMap, VecDeque};
 use sway_types::{state::StateIndex, Spanned};
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn instantiate_function_application(
+pub(crate) fn instantiate_function_application<'de>(
     mut ctx: TypeCheckContext,
     function_decl: TypedFunctionDeclaration,
     call_path: CallPath,
     arguments: Vec<Expression>,
-) -> CompileResult<TypedExpression> {
+) -> CompileResult<TypedExpression<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 
@@ -79,7 +79,7 @@ pub(crate) fn instantiate_function_application(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn instantiate_function_application_simple(
+pub(crate) fn instantiate_function_application_simple<'de>(
     call_path: CallPath,
     contract_call_params: HashMap<String, TypedExpression, RandomState>,
     arguments: VecDeque<TypedExpression>,
@@ -88,7 +88,7 @@ pub(crate) fn instantiate_function_application_simple(
     is_constant: IsConstant,
     self_state_idx: Option<StateIndex>,
     span: Span,
-) -> CompileResult<TypedExpression> {
+) -> CompileResult<TypedExpression<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 
@@ -151,7 +151,7 @@ pub(crate) fn check_function_arguments_arity(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn instantiate_function_application_inner(
+fn instantiate_function_application_inner<'de>(
     call_path: CallPath,
     contract_call_params: HashMap<String, TypedExpression, RandomState>,
     arguments: Vec<(Ident, TypedExpression)>,
@@ -160,7 +160,7 @@ fn instantiate_function_application_inner(
     is_constant: IsConstant,
     self_state_idx: Option<StateIndex>,
     span: Span,
-) -> TypedExpression {
+) -> TypedExpression<'de> {
     TypedExpression {
         expression: TypedExpressionVariant::FunctionApplication {
             call_path,

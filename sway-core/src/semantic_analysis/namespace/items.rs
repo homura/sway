@@ -6,16 +6,16 @@ use sway_types::{span::Span, Spanned};
 
 use std::sync::Arc;
 
-pub(super) type SymbolMap = im::OrdMap<Ident, TypedDeclaration>;
+pub(super) type SymbolMap<'de> = im::OrdMap<Ident, TypedDeclaration<'de>>;
 pub(super) type UseSynonyms = im::HashMap<Ident, Vec<Ident>>;
 pub(super) type UseAliases = im::HashMap<String, Ident>;
 
 /// The set of items that exist within some lexical scope via declaration or importing.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Items {
+#[derive(Clone, Debug, Default)]
+pub struct Items<'de> {
     /// An ordered map from `Ident`s to their associated typed declarations.
-    pub(crate) symbols: SymbolMap,
-    pub(crate) implemented_traits: TraitMap,
+    pub(crate) symbols: SymbolMap<'de>,
+    pub(crate) implemented_traits: TraitMap<'de>,
     /// Represents the absolute path from which a symbol was imported.
     ///
     /// For example, in `use ::foo::bar::Baz;`, we store a mapping from the symbol `Baz` to its
@@ -27,10 +27,10 @@ pub struct Items {
     /// alias for `bar`.
     pub(crate) use_aliases: UseAliases,
     /// If there is a storage declaration (which are only valid in contracts), store it here.
-    pub(crate) declared_storage: Option<TypedStorageDeclaration>,
+    pub(crate) declared_storage: Option<TypedStorageDeclaration<'de>>,
 }
 
-impl Items {
+impl Items<'_> {
     /// Immutable access to the inner symbol map.
     pub fn symbols(&self) -> &SymbolMap {
         &self.symbols

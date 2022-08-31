@@ -15,11 +15,11 @@ use super::{
     range::Range,
 };
 
-pub(crate) struct ConstructorFactory {
-    possible_types: Vec<TypeInfo>,
+pub(crate) struct ConstructorFactory<'de> {
+    possible_types: Vec<TypeInfo<'de>>,
 }
 
-impl ConstructorFactory {
+impl<'de> ConstructorFactory<'de> {
     pub(crate) fn new(type_id: TypeId, span: &Span) -> CompileResult<Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
@@ -657,7 +657,7 @@ impl ConstructorFactory {
         enum_pattern: &EnumPattern,
         rest: PatStack,
         span: &Span,
-    ) -> CompileResult<(HashSet<String>, HashSet<String>)> {
+    ) -> CompileResult<'de, (HashSet<String>, HashSet<String>)> {
         let warnings = vec![];
         let mut errors = vec![];
         if enum_pattern.enum_name.as_str() != enum_name.as_str() {

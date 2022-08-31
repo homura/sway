@@ -10,13 +10,13 @@ use sway_types::Spanned;
 use sway_types::{state::StateIndex, Span};
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn type_check_method_application(
+pub(crate) fn type_check_method_application<'de>(
     mut ctx: TypeCheckContext,
     method_name_binding: TypeBinding<MethodName>,
     contract_call_params: Vec<StructExpressionField>,
     arguments: Vec<Expression>,
     span: Span,
-) -> CompileResult<TypedExpression> {
+) -> CompileResult<TypedExpression<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 
@@ -308,11 +308,11 @@ pub(crate) fn type_check_method_application(
     ok(exp, warnings, errors)
 }
 
-pub(crate) fn resolve_method_name(
+pub(crate) fn resolve_method_name<'de>(
     mut ctx: TypeCheckContext,
     method_name: &TypeBinding<MethodName>,
     arguments: VecDeque<TypedExpression>,
-) -> CompileResult<TypedFunctionDeclaration> {
+) -> CompileResult<TypedFunctionDeclaration<'de>> {
     let mut warnings = vec![];
     let mut errors = vec![];
 

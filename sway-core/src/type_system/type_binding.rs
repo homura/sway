@@ -81,7 +81,7 @@ impl<T> Spanned for TypeBinding<T> {
     }
 }
 
-impl TypeBinding<CallPath<(TypeInfo, Span)>> {
+impl TypeBinding<CallPath<(TypeInfo<'_>, Span)>> {
     pub(crate) fn type_check_with_type_info(
         &self,
         ctx: &mut TypeCheckContext,

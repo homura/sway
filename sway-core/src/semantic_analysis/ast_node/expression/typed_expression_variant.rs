@@ -6,32 +6,32 @@ use derivative::Derivative;
 use std::{collections::HashMap, fmt, fmt::Write};
 
 #[derive(Clone, Debug)]
-pub struct ContractCallParams {
+pub struct ContractCallParams<'de> {
     pub(crate) func_selector: [u8; 4],
-    pub(crate) contract_address: Box<TypedExpression>,
+    pub(crate) contract_address: Box<TypedExpression<'de>>,
 }
 
 #[derive(Clone, Debug, Derivative)]
 #[derivative(Eq)]
-pub enum TypedExpressionVariant {
+pub enum TypedExpressionVariant<'de> {
     Literal(Literal),
     FunctionApplication {
         call_path: CallPath,
         #[derivative(Eq(bound = ""))]
-        contract_call_params: HashMap<String, TypedExpression>,
-        arguments: Vec<(Ident, TypedExpression)>,
-        function_decl: TypedFunctionDeclaration,
+        contract_call_params: HashMap<String, TypedExpression<'de>>,
+        arguments: Vec<(Ident, TypedExpression<'de>)>,
+        function_decl: TypedFunctionDeclaration<'de>,
         /// If this is `Some(val)` then `val` is the metadata. If this is `None`, then
         /// there is no selector.
         self_state_idx: Option<StateIndex>,
         #[derivative(Eq(bound = ""))]
-        selector: Option<ContractCallParams>,
+        selector: Option<ContractCallParams<'de>>,
     },
     LazyOperator {
         #[derivative(Eq(bound = ""))]
         op: LazyOp,
-        lhs: Box<TypedExpression>,
-        rhs: Box<TypedExpression>,
+        lhs: Box<TypedExpression<'de>>,
+        rhs: Box<TypedExpression<'de>>,
     },
     VariableExpression {
         name: Ident,
@@ -39,30 +39,30 @@ pub enum TypedExpressionVariant {
         mutability: VariableMutability,
     },
     Tuple {
-        fields: Vec<TypedExpression>,
+        fields: Vec<TypedExpression<'de>>,
     },
     Array {
-        contents: Vec<TypedExpression>,
+        contents: Vec<TypedExpression<'de>>,
     },
     ArrayIndex {
-        prefix: Box<TypedExpression>,
-        index: Box<TypedExpression>,
+        prefix: Box<TypedExpression<'de>>,
+        index: Box<TypedExpression<'de>>,
     },
     StructExpression {
         struct_name: Ident,
-        fields: Vec<TypedStructExpressionField>,
+        fields: Vec<TypedStructExpressionField<'de>>,
         span: Span,
     },
-    CodeBlock(TypedCodeBlock),
+    CodeBlock(TypedCodeBlock<'de>),
     // a flag that this value will later be provided as a parameter, but is currently unknown
     FunctionParameter,
     IfExp {
-        condition: Box<TypedExpression>,
-        then: Box<TypedExpression>,
-        r#else: Option<Box<TypedExpression>>,
+        condition: Box<TypedExpression<'de>>,
+        then: Box<TypedExpression<'de>>,
+        r#else: Option<Box<TypedExpression<'de>>>,
     },
     AsmExpression {
-        registers: Vec<TypedAsmRegisterDeclaration>,
+        registers: Vec<TypedAsmRegisterDeclaration<'de>>,
         body: Vec<AsmOp>,
         returns: Option<(AsmRegister, Span)>,
         whole_block_span: Span,
@@ -70,13 +70,13 @@ pub enum TypedExpressionVariant {
     // like a variable expression but it has multiple parts,
     // like looking up a field in a struct
     StructFieldAccess {
-        prefix: Box<TypedExpression>,
+        prefix: Box<TypedExpression<'de>>,
         field_to_access: TypedStructField,
         field_instantiation_span: Span,
         resolved_type_of_parent: TypeId,
     },
     TupleElemAccess {
-        prefix: Box<TypedExpression>,
+        prefix: Box<TypedExpression<'de>>,
         elem_to_access_num: usize,
         resolved_type_of_parent: TypeId,
         elem_to_access_span: Span,
@@ -87,7 +87,7 @@ pub enum TypedExpressionVariant {
         /// for printing
         variant_name: Ident,
         tag: usize,
-        contents: Option<Box<TypedExpression>>,
+        contents: Option<Box<TypedExpression<'de>>>,
         /// If there is an error regarding this instantiation of the enum,
         /// use these spans as it points to the call site and not the declaration.
         /// They are also used in the language server.
@@ -96,38 +96,38 @@ pub enum TypedExpressionVariant {
     },
     AbiCast {
         abi_name: CallPath,
-        address: Box<TypedExpression>,
+        address: Box<TypedExpression<'de>>,
         #[allow(dead_code)]
         // this span may be used for errors in the future, although it is not right now.
         span: Span,
     },
     StorageAccess(TypeCheckedStorageAccess),
-    IntrinsicFunction(TypedIntrinsicFunctionKind),
+    IntrinsicFunction(TypedIntrinsicFunctionKind<'de>),
     /// a zero-sized type-system-only compile-time thing that is used for constructing ABI casts.
     AbiName(AbiName),
     /// grabs the enum tag from the particular enum and variant of the `exp`
     EnumTag {
-        exp: Box<TypedExpression>,
+        exp: Box<TypedExpression<'de>>,
     },
     /// performs an unsafe cast from the `exp` to the type of the given enum `variant`
     UnsafeDowncast {
-        exp: Box<TypedExpression>,
+        exp: Box<TypedExpression<'de>>,
         variant: TypedEnumVariant,
     },
     WhileLoop {
-        condition: Box<TypedExpression>,
-        body: TypedCodeBlock,
+        condition: Box<TypedExpression<'de>>,
+        body: TypedCodeBlock<'de>,
     },
     Break,
     Continue,
-    Reassignment(Box<TypedReassignment>),
-    StorageReassignment(Box<TypeCheckedStorageReassignment>),
+    Reassignment(Box<TypedReassignment<'de>>),
+    StorageReassignment(Box<TypeCheckedStorageReassignment<'de>>),
 }
 
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypedExpressionVariant {
+impl PartialEq for TypedExpressionVariant<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Literal(l0), Self::Literal(r0)) => l0 == r0,
@@ -352,7 +352,7 @@ impl PartialEq for TypedExpressionVariant {
     }
 }
 
-impl CopyTypes for TypedExpressionVariant {
+impl CopyTypes for TypedExpressionVariant<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         use TypedExpressionVariant::*;
         match self {
@@ -463,7 +463,7 @@ impl CopyTypes for TypedExpressionVariant {
     }
 }
 
-impl fmt::Display for TypedExpressionVariant {
+impl fmt::Display for TypedExpressionVariant<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             TypedExpressionVariant::Literal(lit) => format!("literal {}", lit),
@@ -610,15 +610,15 @@ pub struct TypeCheckedStorageAccessDescriptor {
 }
 
 #[derive(Clone, Debug)]
-pub struct TypedAsmRegisterDeclaration {
-    pub(crate) initializer: Option<TypedExpression>,
+pub struct TypedAsmRegisterDeclaration<'de> {
+    pub(crate) initializer: Option<TypedExpression<'de>>,
     pub(crate) name: Ident,
 }
 
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypedAsmRegisterDeclaration {
+impl PartialEq for TypedAsmRegisterDeclaration<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && if let (Some(l), Some(r)) = (self.initializer.clone(), other.initializer.clone()) {
@@ -629,7 +629,7 @@ impl PartialEq for TypedAsmRegisterDeclaration {
     }
 }
 
-impl CopyTypes for TypedAsmRegisterDeclaration {
+impl CopyTypes for TypedAsmRegisterDeclaration<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         if let Some(ref mut initializer) = self.initializer {
             initializer.copy_types(type_mapping)

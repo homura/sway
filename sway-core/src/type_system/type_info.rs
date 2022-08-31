@@ -32,7 +32,7 @@ impl fmt::Display for AbiName {
 // TODO use idents instead of Strings when we have arena spans
 #[derive(Derivative)]
 #[derivative(Debug, Clone)]
-pub enum TypeInfo {
+pub enum TypeInfo<'de> {
     Unknown,
     UnknownGeneric {
         name: Ident,
@@ -59,7 +59,7 @@ pub enum TypeInfo {
     ContractCaller {
         abi_name: AbiName,
         // boxed for size
-        address: Option<Box<TypedExpression>>,
+        address: Option<Box<TypedExpression<'de>>>,
     },
     /// A custom type could be a struct or similar if the name is in scope,
     /// or just a generic parameter if it is not.
@@ -93,7 +93,7 @@ pub enum TypeInfo {
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl Hash for TypeInfo {
+impl Hash for TypeInfo<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             TypeInfo::Str(len) => {
@@ -193,7 +193,7 @@ impl Hash for TypeInfo {
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypeInfo {
+impl PartialEq for TypeInfo<'_> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Unknown, Self::Unknown) => true,
@@ -272,15 +272,15 @@ impl PartialEq for TypeInfo {
     }
 }
 
-impl Eq for TypeInfo {}
+impl Eq for TypeInfo<'_> {}
 
-impl Default for TypeInfo {
+impl Default for TypeInfo<'_> {
     fn default() -> Self {
         TypeInfo::Unknown
     }
 }
 
-impl fmt::Display for TypeInfo {
+impl fmt::Display for TypeInfo<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use TypeInfo::*;
         let s = match self {
@@ -336,7 +336,7 @@ impl fmt::Display for TypeInfo {
     }
 }
 
-impl JsonAbiString for TypeInfo {
+impl JsonAbiString for TypeInfo<'_> {
     fn json_abi_str(&self) -> String {
         use TypeInfo::*;
         match self {
@@ -381,7 +381,7 @@ impl JsonAbiString for TypeInfo {
     }
 }
 
-impl TypeInfo {
+impl TypeInfo<'_> {
     /// maps a type to a name that is used when constructing function selectors
     pub(crate) fn to_selector_name(&self, error_msg_span: &Span) -> CompileResult<String> {
         use TypeInfo::*;

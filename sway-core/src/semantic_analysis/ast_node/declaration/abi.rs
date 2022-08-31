@@ -42,10 +42,10 @@ impl CreateTypeId for TypedAbiDeclaration {
 }
 
 impl TypedAbiDeclaration {
-    pub(crate) fn type_check(
+    pub(crate) fn type_check<'de>(
         ctx: TypeCheckContext,
         abi_decl: AbiDeclaration,
-    ) -> CompileResult<Self> {
+    ) -> CompileResult<'de, Self> {
         let mut warnings = vec![];
         let mut errors = vec![];
 

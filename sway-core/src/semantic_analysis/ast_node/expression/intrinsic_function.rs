@@ -15,14 +15,14 @@ use crate::{
 use super::TypedExpression;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TypedIntrinsicFunctionKind {
+pub struct TypedIntrinsicFunctionKind<'de> {
     pub kind: Intrinsic,
-    pub arguments: Vec<TypedExpression>,
+    pub arguments: Vec<TypedExpression<'de>>,
     pub type_arguments: Vec<TypeArgument>,
     pub span: Span,
 }
 
-impl CopyTypes for TypedIntrinsicFunctionKind {
+impl CopyTypes for TypedIntrinsicFunctionKind<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         for arg in &mut self.arguments {
             arg.copy_types(type_mapping);
@@ -33,7 +33,7 @@ impl CopyTypes for TypedIntrinsicFunctionKind {
     }
 }
 
-impl fmt::Display for TypedIntrinsicFunctionKind {
+impl fmt::Display for TypedIntrinsicFunctionKind<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let targs = self
             .type_arguments
@@ -46,13 +46,13 @@ impl fmt::Display for TypedIntrinsicFunctionKind {
     }
 }
 
-impl DeterministicallyAborts for TypedIntrinsicFunctionKind {
+impl DeterministicallyAborts for TypedIntrinsicFunctionKind<'_> {
     fn deterministically_aborts(&self) -> bool {
         self.arguments.iter().any(|x| x.deterministically_aborts())
     }
 }
 
-impl UnresolvedTypeCheck for TypedIntrinsicFunctionKind {
+impl UnresolvedTypeCheck for TypedIntrinsicFunctionKind<'_> {
     fn check_for_unresolved_types(&self) -> Vec<CompileError> {
         self.type_arguments
             .iter()
@@ -66,7 +66,7 @@ impl UnresolvedTypeCheck for TypedIntrinsicFunctionKind {
     }
 }
 
-impl TypedIntrinsicFunctionKind {
+impl TypedIntrinsicFunctionKind<'_> {
     pub(crate) fn type_check(
         mut ctx: TypeCheckContext,
         kind_binding: TypeBinding<Intrinsic>,

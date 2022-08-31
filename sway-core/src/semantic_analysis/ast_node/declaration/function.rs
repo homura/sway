@@ -9,9 +9,9 @@ use sway_types::{
 };
 
 #[derive(Clone, Debug, Eq)]
-pub struct TypedFunctionDeclaration {
+pub struct TypedFunctionDeclaration<'de> {
     pub name: Ident,
-    pub body: TypedCodeBlock,
+    pub body: TypedCodeBlock<'de>,
     pub parameters: Vec<TypedFunctionParameter>,
     pub span: Span,
     pub return_type: TypeId,
@@ -26,7 +26,7 @@ pub struct TypedFunctionDeclaration {
     pub(crate) purity: Purity,
 }
 
-impl From<&TypedFunctionDeclaration> for TypedAstNode {
+impl From<&TypedFunctionDeclaration<'_>> for TypedAstNode<'_> {
     fn from(o: &TypedFunctionDeclaration) -> Self {
         let span = o.span.clone();
         TypedAstNode {
@@ -41,7 +41,7 @@ impl From<&TypedFunctionDeclaration> for TypedAstNode {
 // NOTE: Hash and PartialEq must uphold the invariant:
 // k1 == k2 -> hash(k1) == hash(k2)
 // https://doc.rust-lang.org/std/collections/struct.HashMap.html
-impl PartialEq for TypedFunctionDeclaration {
+impl PartialEq for TypedFunctionDeclaration<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.body == other.body
@@ -54,7 +54,7 @@ impl PartialEq for TypedFunctionDeclaration {
     }
 }
 
-impl CopyTypes for TypedFunctionDeclaration {
+impl CopyTypes for TypedFunctionDeclaration<'_> {
     fn copy_types(&mut self, type_mapping: &TypeMapping) {
         self.type_parameters
             .iter_mut()
@@ -68,13 +68,13 @@ impl CopyTypes for TypedFunctionDeclaration {
     }
 }
 
-impl Spanned for TypedFunctionDeclaration {
+impl Spanned for TypedFunctionDeclaration<'_> {
     fn span(&self) -> Span {
         self.span.clone()
     }
 }
 
-impl MonomorphizeHelper for TypedFunctionDeclaration {
+impl MonomorphizeHelper for TypedFunctionDeclaration<'_> {
     fn type_parameters(&self) -> &[TypeParameter] {
         &self.type_parameters
     }
@@ -84,7 +84,7 @@ impl MonomorphizeHelper for TypedFunctionDeclaration {
     }
 }
 
-impl ToJsonAbi for TypedFunctionDeclaration {
+impl ToJsonAbi for TypedFunctionDeclaration<'_> {
     type Output = Function;
 
     fn generate_json_abi(&self) -> Self::Output {
@@ -117,8 +117,11 @@ impl ToJsonAbi for TypedFunctionDeclaration {
     }
 }
 
-impl TypedFunctionDeclaration {
-    pub fn type_check(ctx: TypeCheckContext, fn_decl: FunctionDeclaration) -> CompileResult<Self> {
+impl TypedFunctionDeclaration<'_> {
+    pub fn type_check<'de>(
+        ctx: TypeCheckContext,
+        fn_decl: FunctionDeclaration,
+    ) -> CompileResult<'de, Self> {
         let mut warnings = Vec::new();
         let mut errors = Vec::new();
 

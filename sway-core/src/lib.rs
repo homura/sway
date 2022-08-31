@@ -64,7 +64,10 @@ pub fn parse(input: Arc<str>, config: Option<&BuildConfig>) -> CompileResult<Par
 }
 
 /// Parse a file with contents `src` at `path`.
-fn parse_file(src: Arc<str>, path: Option<Arc<PathBuf>>) -> CompileResult<sway_ast::Module> {
+fn parse_file(
+    src: Arc<str>,
+    path: Option<Arc<PathBuf>>,
+) -> CompileResult<'static, sway_ast::Module> {
     let handler = sway_parse::handler::Handler::default();
     match sway_parse::parse_file(&handler, src, path) {
         Ok(module) => ok(
@@ -80,7 +83,7 @@ fn parse_file(src: Arc<str>, path: Option<Arc<PathBuf>>) -> CompileResult<sway_a
 }
 
 /// When no `BuildConfig` is given, we're assumed to be parsing in-memory with no submodules.
-fn parse_in_memory(src: Arc<str>) -> CompileResult<ParseProgram> {
+fn parse_in_memory(src: Arc<str>) -> CompileResult<'static, ParseProgram> {
     parse_file(src, None).flat_map(|module| {
         convert_parse_tree::convert_parse_tree(module).flat_map(|(kind, tree)| {
             let submodules = Default::default();
@@ -102,10 +105,10 @@ fn parse_files(src: Arc<str>, config: &BuildConfig) -> CompileResult<ParseProgra
 }
 
 /// Parse all dependencies `deps` as submodules.
-fn parse_submodules(
+fn parse_submodules<'de>(
     deps: &[Dependency],
     module_dir: &Path,
-) -> CompileResult<Vec<(Ident, ParseSubmodule)>> {
+) -> CompileResult<'de, Vec<(Ident, ParseSubmodule)>> {
     let init_res = ok(vec![], vec![], vec![]);
     deps.iter().fold(init_res, |res, dep| {
         let dep_path = Arc::new(module_path(module_dir, dep));
@@ -148,7 +151,10 @@ fn parse_submodules(
 
 /// Given the source of the module along with its path, parse this module including all of its
 /// submodules.
-fn parse_module_tree(src: Arc<str>, path: Arc<PathBuf>) -> CompileResult<(TreeType, ParseModule)> {
+fn parse_module_tree(
+    src: Arc<str>,
+    path: Arc<PathBuf>,
+) -> CompileResult<'static, (TreeType, ParseModule)> {
     // Parse this module first.
     parse_file(src, Some(path.clone())).flat_map(|module| {
         let module_dir = path.parent().expect("module file has no parent directory");
@@ -190,53 +196,53 @@ fn parse_file_error_to_compile_errors(
 
 /// Represents the result of compiling Sway code via [compile_to_asm].
 /// Contains the compiled assets or resulting errors, and any warnings generated.
-pub enum CompilationResult {
+pub enum CompilationResult<'de> {
     Success {
         asm: FinalizedAsm,
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
     },
     Library {
         name: Ident,
-        namespace: Box<namespace::Root>,
-        warnings: Vec<CompileWarning>,
+        namespace: Box<namespace::Root<'de>>,
+        warnings: Vec<CompileWarning<'de>>,
     },
     Failure {
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
         errors: Vec<CompileError>,
     },
 }
 
-pub enum CompileAstResult {
+pub enum CompileAstResult<'de> {
     Success {
-        typed_program: Box<TypedProgram>,
-        warnings: Vec<CompileWarning>,
+        typed_program: Box<TypedProgram<'de>>,
+        warnings: Vec<CompileWarning<'de>>,
     },
     Failure {
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
         errors: Vec<CompileError>,
     },
 }
 
 /// Represents the result of compiling Sway code via [compile_to_bytecode].
 /// Contains the compiled bytecode in byte form, or resulting errors, and any warnings generated.
-pub enum BytecodeCompilationResult {
+pub enum BytecodeCompilationResult<'de> {
     Success {
         bytes: Vec<u8>,
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
     },
     Library {
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
     },
     Failure {
-        warnings: Vec<CompileWarning>,
+        warnings: Vec<CompileWarning<'de>>,
         errors: Vec<CompileError>,
     },
 }
 
-pub fn parsed_to_ast(
+pub fn parsed_to_ast<'de>(
     parse_program: &ParseProgram,
     initial_namespace: namespace::Module,
-) -> CompileAstResult {
+) -> CompileAstResult<'de> {
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
 
@@ -311,11 +317,11 @@ pub fn parsed_to_ast(
     }
 }
 
-pub fn compile_to_ast(
+pub fn compile_to_ast<'de>(
     input: Arc<str>,
     initial_namespace: namespace::Module,
     build_config: Option<&BuildConfig>,
-) -> CompileAstResult {
+) -> CompileAstResult<'de> {
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
 
@@ -374,7 +380,10 @@ pub fn compile_to_asm(
 
 /// Given an AST compilation result, compile to a [CompilationResult] which contains the asm in
 /// opcode form (not raw bytes/bytecode).
-pub fn ast_to_asm(ast_res: CompileAstResult, build_config: &BuildConfig) -> CompilationResult {
+pub fn ast_to_asm<'de>(
+    ast_res: CompileAstResult,
+    build_config: &BuildConfig,
+) -> CompilationResult<'de> {
     match ast_res {
         CompileAstResult::Failure { warnings, errors } => {
             CompilationResult::Failure { warnings, errors }
@@ -410,10 +419,10 @@ pub fn ast_to_asm(ast_res: CompileAstResult, build_config: &BuildConfig) -> Comp
 
 use sway_ir::{context::Context, function::Function};
 
-pub(crate) fn compile_ast_to_ir_to_asm(
+pub(crate) fn compile_ast_to_ir_to_asm<'de>(
     program: TypedProgram,
     build_config: &BuildConfig,
-) -> CompileResult<FinalizedAsm> {
+) -> CompileResult<'de, FinalizedAsm> {
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
 
@@ -518,7 +527,7 @@ pub(crate) fn compile_ast_to_ir_to_asm(
     compile_ir_to_asm(&ir, Some(build_config))
 }
 
-fn inline_function_calls(ir: &mut Context, functions: &[Function]) -> CompileResult<()> {
+fn inline_function_calls<'de>(ir: &mut Context, functions: &[Function]) -> CompileResult<'de, ()> {
     for function in functions {
         if let Err(ir_error) = sway_ir::optimize::inline_all_function_calls(ir, function) {
             return err(
@@ -533,7 +542,7 @@ fn inline_function_calls(ir: &mut Context, functions: &[Function]) -> CompileRes
     ok((), Vec::new(), Vec::new())
 }
 
-fn combine_constants(ir: &mut Context, functions: &[Function]) -> CompileResult<()> {
+fn combine_constants<'de>(ir: &mut Context, functions: &[Function]) -> CompileResult<'de, ()> {
     for function in functions {
         if let Err(ir_error) = sway_ir::optimize::combine_constants(ir, function) {
             return err(
@@ -548,7 +557,7 @@ fn combine_constants(ir: &mut Context, functions: &[Function]) -> CompileResult<
     ok((), Vec::new(), Vec::new())
 }
 
-fn simplify_cfg(ir: &mut Context, functions: &[Function]) -> CompileResult<()> {
+fn simplify_cfg<'de>(ir: &mut Context, functions: &[Function]) -> CompileResult<'de, ()> {
     for function in functions {
         if let Err(ir_error) = sway_ir::optimize::simplify_cfg(ir, function) {
             return err(
@@ -565,12 +574,12 @@ fn simplify_cfg(ir: &mut Context, functions: &[Function]) -> CompileResult<()> {
 
 /// Given input Sway source code, compile to a [BytecodeCompilationResult] which contains the asm in
 /// bytecode form.
-pub fn compile_to_bytecode(
+pub fn compile_to_bytecode<'de>(
     input: Arc<str>,
     initial_namespace: namespace::Module,
     build_config: BuildConfig,
     source_map: &mut SourceMap,
-) -> BytecodeCompilationResult {
+) -> BytecodeCompilationResult<'de> {
     let asm_res = compile_to_asm(input, initial_namespace, build_config);
     let result = asm_to_bytecode(asm_res, source_map);
     clear_lazy_statics();
@@ -579,10 +588,10 @@ pub fn compile_to_bytecode(
 
 /// Given a [CompilationResult] containing the assembly (opcodes), compile to a
 /// [BytecodeCompilationResult] which contains the asm in bytecode form.
-pub fn asm_to_bytecode(
+pub fn asm_to_bytecode<'de>(
     asm_res: CompilationResult,
     source_map: &mut SourceMap,
-) -> BytecodeCompilationResult {
+) -> BytecodeCompilationResult<'de> {
     match asm_res {
         CompilationResult::Success {
             mut asm,
@@ -618,7 +627,7 @@ pub fn clear_lazy_statics() {
 
 /// Given a [TypedProgram], which is type-checked Sway source, construct a graph to analyze
 /// control flow and determine if it is valid.
-fn perform_control_flow_analysis(program: &TypedProgram) -> CompileResult<()> {
+fn perform_control_flow_analysis<'de>(program: &TypedProgram) -> CompileResult<'de, ()> {
     let dca_res = dead_code_analysis(program);
     let rpa_errors = return_path_analysis(program);
     let rpa_res = if rpa_errors.is_empty() {
@@ -633,7 +642,7 @@ fn perform_control_flow_analysis(program: &TypedProgram) -> CompileResult<()> {
 /// code.
 ///
 /// Returns the graph that was used for analysis.
-fn dead_code_analysis(program: &TypedProgram) -> CompileResult<ControlFlowGraph> {
+fn dead_code_analysis<'de>(program: &TypedProgram) -> CompileResult<'de, ControlFlowGraph> {
     let mut dead_code_graph = Default::default();
     let tree_type = program.kind.tree_type();
     module_dead_code_analysis(&program.root, &tree_type, &mut dead_code_graph).flat_map(|_| {
@@ -643,11 +652,11 @@ fn dead_code_analysis(program: &TypedProgram) -> CompileResult<ControlFlowGraph>
 }
 
 /// Recursively collect modules into the given `ControlFlowGraph` ready for dead code analysis.
-fn module_dead_code_analysis(
+fn module_dead_code_analysis<'de>(
     module: &TypedModule,
     tree_type: &TreeType,
     graph: &mut ControlFlowGraph,
-) -> CompileResult<()> {
+) -> CompileResult<'de, ()> {
     let init_res = ok((), vec![], vec![]);
     let submodules_res = module
         .submodules
