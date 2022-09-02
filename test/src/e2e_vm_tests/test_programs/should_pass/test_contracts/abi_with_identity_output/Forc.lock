@@ -1,0 +1,14 @@
+[[package]]
+name = 'abi_with_identity_output'
+source = 'root'
+dependencies = ['std']
+
+[[package]]
+name = 'core'
+source = 'path+from-root-6F3DFB1A703DF1AD'
+dependencies = []
+
+[[package]]
+name = 'std'
+source = 'path+from-root-6F3DFB1A703DF1AD'
+dependencies = ['core']
