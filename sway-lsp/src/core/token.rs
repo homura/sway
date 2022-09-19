@@ -96,10 +96,3 @@ pub enum SymbolKind {
     TypeParameter,
     Unknown,
 }
-
-// 1. LSP did_change event, receive [Range] of edits
-
-// 2. Loop through our [TokenMap] and get mutable access to any tokens
-// that have a [Span] starting *after* the range.start of the edit
-
-// 3. update the Span's of each of the tokens to reflect the new edits
