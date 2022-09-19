@@ -1,7 +1,7 @@
 use crate::{
     core::{
         session::Session,
-        token::{AstToken, Token, TypedAstToken},
+        token::{AstToken, Token},
     },
     utils::{
         common::{extract_visibility, get_range_from_span},
@@ -9,9 +9,7 @@ use crate::{
         token::to_ident_key,
     },
 };
-use sway_core::{
-    declaration_engine, semantic_analysis::ast_node::TypedDeclaration, Declaration, Visibility,
-};
+use sway_core::{Declaration, Visibility};
 use sway_types::{Ident, Spanned};
 use tower_lsp::lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
 
@@ -54,55 +52,25 @@ fn hover_format(token: &Token, ident: &Ident) -> Hover {
         format!("let{} {}: {}", mutability, token_name, type_name,)
     };
 
-    let value = match &token.typed {
-        Some(typed_token) => match typed_token {
-            TypedAstToken::TypedDeclaration(decl) => match decl {
-                TypedDeclaration::VariableDeclaration(var_decl) => {
-                    let type_name = format!("{}", var_decl.type_ascription);
-                    format_variable_hover(var_decl.mutability.is_mutable(), type_name)
-                }
-                TypedDeclaration::FunctionDeclaration(func) => extract_fn_signature(&func.span()),
-                TypedDeclaration::StructDeclaration(decl_id) => {
-                    // TODO: do not use unwrap
-                    let struct_decl =
-                        declaration_engine::de_get_struct(decl_id.clone(), &decl.span()).unwrap();
-                    format_visibility_hover(struct_decl.visibility, decl.friendly_name())
-                }
-                TypedDeclaration::TraitDeclaration(ref decl_id) => {
-                    // TODO: do not use unwrap
-                    let trait_decl =
-                        declaration_engine::de_get_trait(decl_id.clone(), &decl_id.span()).unwrap();
-                    format_visibility_hover(trait_decl.visibility, decl.friendly_name())
-                }
-                TypedDeclaration::EnumDeclaration(decl_id) => {
-                    let enum_decl =
-                        declaration_engine::de_get_enum(decl_id.clone(), &decl_id.span()).unwrap();
-                    format_visibility_hover(enum_decl.visibility, decl.friendly_name())
-                }
-                _ => token_name,
-            },
+    let value = match &token.parsed {
+        AstToken::Declaration(decl) => match decl {
+            Declaration::VariableDeclaration(var_decl) => {
+                let type_name = format!("{}", var_decl.type_ascription);
+                format_variable_hover(var_decl.is_mutable, type_name)
+            }
+            Declaration::FunctionDeclaration(func) => extract_fn_signature(&func.span),
+            Declaration::StructDeclaration(struct_decl) => {
+                format_visibility_hover(struct_decl.visibility, "struct")
+            }
+            Declaration::TraitDeclaration(trait_decl) => {
+                format_visibility_hover(trait_decl.visibility, "trait")
+            }
+            Declaration::EnumDeclaration(enum_decl) => {
+                format_visibility_hover(enum_decl.visibility, "enum")
+            }
             _ => token_name,
         },
-        None => match &token.parsed {
-            AstToken::Declaration(decl) => match decl {
-                Declaration::VariableDeclaration(var_decl) => {
-                    let type_name = format!("{}", var_decl.type_ascription);
-                    format_variable_hover(var_decl.is_mutable, type_name)
-                }
-                Declaration::FunctionDeclaration(func) => extract_fn_signature(&func.span),
-                Declaration::StructDeclaration(struct_decl) => {
-                    format_visibility_hover(struct_decl.visibility, "struct")
-                }
-                Declaration::TraitDeclaration(trait_decl) => {
-                    format_visibility_hover(trait_decl.visibility, "trait")
-                }
-                Declaration::EnumDeclaration(enum_decl) => {
-                    format_visibility_hover(enum_decl.visibility, "enum")
-                }
-                _ => token_name,
-            },
-            _ => token_name,
-        },
+        _ => token_name,
     };
 
     Hover {

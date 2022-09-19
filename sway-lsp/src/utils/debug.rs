@@ -83,7 +83,14 @@ pub(crate) fn debug_print_ident_and_token(ident: &Ident, token: &Token) {
 fn ast_node_type(token_type: &Token) -> String {
     match &token_type.typed {
         Some(typed_ast_token) => match typed_ast_token {
-            TypedAstToken::TypedDeclaration(dec) => dec.friendly_name().to_string(),
+            TypedAstToken::TypedVariableDeclaration(_) => "variable".to_string(),
+            TypedAstToken::TypedConstantDeclaration(_) => "constant".to_string(),
+            TypedAstToken::TypedTraitDeclaration(_) => "trait".to_string(),
+            TypedAstToken::TypedStructDeclaration(_) => "struct".to_string(),
+            TypedAstToken::TypedEnumDeclaration(_) => "enum".to_string(),
+            TypedAstToken::TypedImplTrait(_) => "impl trait".to_string(),
+            TypedAstToken::TypedAbiDeclaration(_) => "abi".to_string(),
+            TypedAstToken::TypedFunctionDeclaration(_) => "function".to_string(),
             TypedAstToken::TypedExpression(exp) => exp.expression.to_string(),
             TypedAstToken::TypedFunctionParameter(_) => "function parameter".to_string(),
             TypedAstToken::TypedStructField(_) => "struct field".to_string(),

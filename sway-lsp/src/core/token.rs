@@ -2,8 +2,10 @@ use dashmap::DashMap;
 use sway_core::{
     semantic_analysis::ast_node::{
         expression::typed_expression::TypedExpression, TypeCheckedStorageReassignDescriptor,
-        TypedDeclaration, TypedEnumVariant, TypedFunctionDeclaration, TypedFunctionParameter,
-        TypedReassignment, TypedStorageField, TypedStructField, TypedTraitFn,
+        TypedAbiDeclaration, TypedConstantDeclaration, TypedEnumDeclaration, TypedEnumVariant,
+        TypedFunctionDeclaration, TypedFunctionParameter, TypedImplTrait, TypedReassignment,
+        TypedStorageField, TypedStructDeclaration, TypedStructField, TypedTraitDeclaration,
+        TypedTraitFn, TypedVariableDeclaration,
     },
     type_system::TypeId,
     Declaration, EnumVariant, Expression, FunctionDeclaration, FunctionParameter,
@@ -55,7 +57,13 @@ pub enum AstToken {
 
 #[derive(Debug, Clone)]
 pub enum TypedAstToken {
-    TypedDeclaration(TypedDeclaration),
+    TypedVariableDeclaration(TypedVariableDeclaration),
+    TypedConstantDeclaration(TypedConstantDeclaration),
+    TypedTraitDeclaration(TypedTraitDeclaration),
+    TypedStructDeclaration(TypedStructDeclaration),
+    TypedEnumDeclaration(TypedEnumDeclaration),
+    TypedImplTrait(TypedImplTrait),
+    TypedAbiDeclaration(TypedAbiDeclaration),
     TypedExpression(TypedExpression),
     TypedFunctionDeclaration(TypedFunctionDeclaration),
     TypedFunctionParameter(TypedFunctionParameter),
@@ -65,6 +73,7 @@ pub enum TypedAstToken {
     TypedStorageField(TypedStorageField),
     TypeCheckedStorageReassignDescriptor(TypeCheckedStorageReassignDescriptor),
     TypedReassignment(TypedReassignment),
+    GenericTypeForFunctionScope { name: Ident, type_id: TypeId },
 }
 
 #[derive(Debug, Clone)]
@@ -87,3 +96,10 @@ pub enum SymbolKind {
     TypeParameter,
     Unknown,
 }
+
+// 1. LSP did_change event, receive [Range] of edits
+
+// 2. Loop through our [TokenMap] and get mutable access to any tokens
+// that have a [Span] starting *after* the range.start of the edit
+
+// 3. update the Span's of each of the tokens to reflect the new edits
