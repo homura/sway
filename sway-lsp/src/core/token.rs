@@ -83,6 +83,7 @@ pub enum SymbolKind {
     NumericLiteral,
     Variable,
     BuiltinType,
+    BuiltinAttr,
     Module,
     TypeParameter,
     Unknown,
