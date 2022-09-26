@@ -9,7 +9,7 @@ use crate::{
         token::{Token, TokenMap, TypeDefinition},
         {traverse_parse_tree, traverse_typed_tree},
     },
-    utils,
+    utils::{self, sync},
 };
 use dashmap::DashMap;
 use forc_pkg::{self as pkg};
@@ -36,6 +36,7 @@ pub struct CompiledProgram {
 #[derive(Debug)]
 pub struct Session {
     pub documents: Documents,
+    pub directories: DashMap<sync::Directory, PathBuf>,
     pub token_map: TokenMap,
     pub runnables: DashMap<RunnableType, Runnable>,
     pub compiled_program: RwLock<CompiledProgram>,
@@ -45,6 +46,7 @@ impl Session {
     pub fn new() -> Self {
         Session {
             documents: DashMap::new(),
+            directories: DashMap::new(),
             token_map: DashMap::new(),
             runnables: DashMap::new(),
             compiled_program: RwLock::new(Default::default()),
@@ -262,12 +264,17 @@ impl Session {
         }
     }
 
-    pub fn update_text_document(&self, url: &Url, changes: Vec<TextDocumentContentChangeEvent>) {
-        if let Some(ref mut document) = self.documents.get_mut(url.path()) {
+    pub fn update_text_document(
+        &self,
+        url: &Url,
+        changes: Vec<TextDocumentContentChangeEvent>,
+    ) -> Option<String> {
+        self.documents.get_mut(url.path()).and_then(|mut document| {
             changes.iter().for_each(|change| {
                 document.apply_change(change);
             });
-        }
+            Some(document.get_text())
+        })
     }
 
     // Token
