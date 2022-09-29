@@ -158,6 +158,10 @@ impl TypeBinding<CallPath> {
                     errors
                 );
 
+                if new_copy.name.as_str() == "second_if" || new_copy.name.as_str() == "third_if" {
+                    println!("~~~ about to apply the type binding: {}", new_copy);
+                }
+
                 // monomorphize the copy, in place
                 check!(
                     ctx.monomorphize(
@@ -170,6 +174,10 @@ impl TypeBinding<CallPath> {
                     warnings,
                     errors
                 );
+
+                if new_copy.name.as_str() == "second_if" || new_copy.name.as_str() == "third_if" {
+                    println!("~~~   just applied the type binding: {}", new_copy);
+                }
 
                 // insert the new copy into the declaration engine
                 let new_id = de_insert_function(new_copy);

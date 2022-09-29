@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     error::{err, ok},
     semantic_analysis::{
@@ -19,6 +21,22 @@ pub struct TypedFunctionParameter {
     pub type_id: TypeId,
     pub initial_type_id: TypeId,
     pub type_span: Span,
+}
+
+impl fmt::Display for TypedFunctionParameter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let is_reference = if self.is_reference { "ref " } else { "" };
+        let is_mutable = if self.is_mutable { "mut " } else { "" };
+        if self.is_self() {
+            write!(f, "{}{}self", is_reference, is_mutable)
+        } else {
+            write!(
+                f,
+                "{}{}{}: {}",
+                is_reference, is_mutable, self.name, self.type_id,
+            )
+        }
+    }
 }
 
 // NOTE: Hash and PartialEq must uphold the invariant:

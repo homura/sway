@@ -366,7 +366,25 @@ impl CopyTypes for TypedExpressionVariant {
                 arguments
                     .iter_mut()
                     .for_each(|(_ident, expr)| expr.copy_types(type_mapping));
-                function_decl.copy_types(type_mapping);
+                if function_decl.name.as_str() == "second_if"
+                    || function_decl.name.as_str() == "third_if"
+                {
+                    println!("-> about to do copy types: {}", function_decl);
+                }
+                for type_param in function_decl.type_parameters.iter() {
+                    if let Some(matching_id) = type_mapping.find_match(type_param.type_id) {
+                        replace_type_id(
+                            type_param.type_id,
+                            TypeInfo::Ref(matching_id, type_param.name_ident.span()),
+                        );
+                    }
+                }
+                //function_decl.copy_types(type_mapping);
+                if function_decl.name.as_str() == "second_if"
+                    || function_decl.name.as_str() == "third_if"
+                {
+                    println!("->    just did copy types: {}", function_decl);
+                }
             }
             LazyOperator { lhs, rhs, .. } => {
                 (*lhs).copy_types(type_mapping);

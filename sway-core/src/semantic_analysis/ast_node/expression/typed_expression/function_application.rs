@@ -31,6 +31,10 @@ pub(crate) fn instantiate_function_application(
         errors
     );
 
+    if function_decl.name.as_str() == "second_if" || function_decl.name.as_str() == "third_if" {
+        println!("!! about to type check arguments: {}", function_decl);
+    }
+
     // type check arguments in function application vs arguments in function
     // declaration. Use parameter type annotations as annotations for the
     // arguments
@@ -63,6 +67,10 @@ pub(crate) fn instantiate_function_application(
             (param.name.clone(), exp)
         })
         .collect();
+
+    if function_decl.name.as_str() == "second_if" || function_decl.name.as_str() == "third_if" {
+        println!("!!   just type checked arguments: {}", function_decl);
+    }
 
     let span = function_decl.span.clone();
     let exp = instantiate_function_application_inner(

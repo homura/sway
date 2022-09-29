@@ -1,4 +1,6 @@
 mod function_parameter;
+use std::fmt;
+
 pub use function_parameter::*;
 
 use crate::{
@@ -24,6 +26,34 @@ pub struct TypedFunctionDeclaration {
     /// whether this function exists in another contract and requires a call to it or not
     pub(crate) is_contract_call: bool,
     pub(crate) purity: Purity,
+}
+
+impl fmt::Display for TypedFunctionDeclaration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}{}({}) -> {} {{ .. }}",
+            self.name,
+            if self.type_parameters.is_empty() {
+                "".to_string()
+            } else {
+                format!(
+                    "<{}>",
+                    self.type_parameters
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            },
+            self.parameters
+                .iter()
+                .map(|x| x.to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            self.return_type
+        )
+    }
 }
 
 impl From<&TypedFunctionDeclaration> for TypedAstNode {

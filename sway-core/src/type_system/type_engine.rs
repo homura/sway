@@ -26,23 +26,43 @@ impl TypeEngine {
         TypeId::new(self.slab.insert(ty))
     }
 
+    /// Gets the size of the [TypeEngine].
     pub fn size(&self) -> usize {
         self.slab.size()
-    }
-
-    /// Gets the size of the [TypeEngine].
-    fn look_up_type_id_raw(&self, id: TypeId) -> TypeInfo {
-        self.slab.get(*id)
     }
 
     /// Performs a lookup of `id` into the [TypeEngine], but only one level
     /// deep. (i.e. lookup will stop after looking up `id` once, even if it
     /// returns a [TypeInfo::Ref(..)])
+    fn look_up_type_id_raw(&self, id: TypeId) -> TypeInfo {
+        self.slab.get(*id)
+    }
+
+    fn look_up_type_id_raw_base(&self, id: TypeId) -> TypeId {
+        match self.slab.get(*id) {
+            TypeInfo::Ref(id, _) => id,
+            _ => id,
+        }
+    }
+
+    fn look_up_type_id_base(&self, id: TypeId) -> TypeId {
+        match self.slab.get(*id) {
+            TypeInfo::Ref(next_id, _) => self.look_up_type_id_base(next_id),
+            _ => id,
+        }
+    }
+
+    /// Performs a lookup of `id` into the [TypeEngine], recursively diving into
+    /// any instances of [TypeInfo::Ref(..)].
     pub(crate) fn look_up_type_id(&self, id: TypeId) -> TypeInfo {
         match self.slab.get(*id) {
-            TypeInfo::Ref(other, _sp) => self.look_up_type_id(other),
+            TypeInfo::Ref(other, _) => self.look_up_type_id(other),
             ty => ty,
         }
+    }
+
+    fn replace_type_id(&self, id: TypeId, new_value: TypeInfo) {
+        self.slab.blind_replace(*id, new_value);
     }
 
     /// Performs a recursive lookup of `id` into the [TypeEngine] until the
@@ -214,7 +234,6 @@ impl TypeEngine {
                 }
                 (warnings, errors)
             }
-            //(received_info, expected_info) if received_info == expected_info => (vec![], vec![]),
 
             // Follow any references
             (Ref(received, _sp1), Ref(expected, _sp2)) if received == expected => (vec![], vec![]),
@@ -292,21 +311,16 @@ impl TypeEngine {
             {
                 (vec![], vec![])
             }
-            (ref received_info @ UnknownGeneric { .. }, _) => {
-                self.slab.replace(
-                    received,
-                    received_info,
-                    TypeInfo::Ref(expected, span.clone()),
-                );
+            (UnknownGeneric { .. }, UnknownGeneric { .. }) => {
+                self.slab.blind_replace(*expected, TypeInfo::Ref(received, span.clone()));
                 (vec![], vec![])
             }
-
-            (_, ref expected_info @ UnknownGeneric { .. }) => {
-                self.slab.replace(
-                    expected,
-                    expected_info,
-                    TypeInfo::Ref(received, span.clone()),
-                );
+            (UnknownGeneric { .. }, _) => {
+                self.slab.blind_replace(*received, TypeInfo::Ref(expected, span.clone()));
+                (vec![], vec![])
+            }
+            (_, UnknownGeneric { .. }) => {
+                self.slab.blind_replace(*expected, TypeInfo::Ref(received, span.clone()));
                 (vec![], vec![])
             }
 
@@ -717,6 +731,18 @@ pub(crate) fn look_up_type_id_raw(id: TypeId) -> TypeInfo {
     TYPE_ENGINE.look_up_type_id_raw(id)
 }
 
+pub(crate) fn look_up_type_id_raw_base(id: TypeId) -> TypeId {
+    TYPE_ENGINE.look_up_type_id_raw_base(id)
+}
+
+pub(crate) fn look_up_type_id_base(id: TypeId) -> TypeId {
+    TYPE_ENGINE.look_up_type_id_base(id)
+}
+
+pub(crate) fn replace_type_id(id: TypeId, new_value: TypeInfo) {
+    TYPE_ENGINE.replace_type_id(id, new_value);
+}
+
 pub fn set_type_as_storage_only(id: TypeId) {
     TYPE_ENGINE.set_type_as_storage_only(id);
 }
@@ -751,13 +777,14 @@ where
 }
 
 pub fn unify_with_self(
-    a: TypeId,
-    b: TypeId,
+    received: TypeId,
+    expected: TypeId,
     self_type: TypeId,
     span: &Span,
     help_text: impl Into<String>,
 ) -> (Vec<CompileWarning>, Vec<CompileError>) {
-    let (warnings, errors) = TYPE_ENGINE.unify_with_self(a, b, self_type, span, help_text);
+    let (warnings, errors) =
+        TYPE_ENGINE.unify_with_self(received, expected, self_type, span, help_text);
     (
         warnings,
         errors.into_iter().map(|error| error.into()).collect(),
@@ -765,12 +792,12 @@ pub fn unify_with_self(
 }
 
 pub(crate) fn unify(
-    a: TypeId,
-    b: TypeId,
+    received: TypeId,
+    expected: TypeId,
     span: &Span,
     help_text: impl Into<String>,
 ) -> (Vec<CompileWarning>, Vec<CompileError>) {
-    let (warnings, errors) = TYPE_ENGINE.unify(a, b, span, help_text);
+    let (warnings, errors) = TYPE_ENGINE.unify(received, expected, span, help_text);
     (
         warnings,
         errors.into_iter().map(|error| error.into()).collect(),
