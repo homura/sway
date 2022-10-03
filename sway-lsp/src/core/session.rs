@@ -21,8 +21,8 @@ use sway_core::{CompileResult, ParseProgram, TypedProgram, TypedProgramKind};
 use sway_types::{Ident, Spanned};
 use swayfmt::Formatter;
 use tower_lsp::lsp_types::{
-    CompletionItem, Diagnostic, GotoDefinitionParams, GotoDefinitionResponse, Location, Position,
-    Range, SymbolInformation, TextDocumentContentChangeEvent, TextEdit, Url,
+    CompletionItem, Diagnostic, GotoDefinitionResponse, Location, Position, Range,
+    SymbolInformation, TextDocumentContentChangeEvent, TextEdit, Url,
 };
 
 pub type Documents = DashMap<String, TextDocument>;
@@ -269,11 +269,11 @@ impl Session {
         url: &Url,
         changes: Vec<TextDocumentContentChangeEvent>,
     ) -> Option<String> {
-        self.documents.get_mut(url.path()).and_then(|mut document| {
+        self.documents.get_mut(url.path()).map(|mut document| {
             changes.iter().for_each(|change| {
                 document.apply_change(change);
             });
-            Some(document.get_text())
+            document.get_text()
         })
     }
 

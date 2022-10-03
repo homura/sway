@@ -219,13 +219,9 @@ impl LanguageServer for Backend {
             &params.text_document_position_params.text_document.uri,
             &self.session.directories,
         )
-        .and_then(|uri| {
+        .map(|uri| {
             let position = params.text_document_position_params.position;
-            Ok(capabilities::hover::hover_data(
-                &self.session,
-                uri,
-                position,
-            ))
+            capabilities::hover::hover_data(&self.session, uri, position)
         })
         .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
@@ -247,11 +243,10 @@ impl LanguageServer for Backend {
         params: DocumentSymbolParams,
     ) -> jsonrpc::Result<Option<DocumentSymbolResponse>> {
         sync::workspace_to_temp_url(&params.text_document.uri, &self.session.directories)
-            .and_then(|uri| {
-                Ok(self
-                    .session
+            .map(|uri| {
+                self.session
                     .symbol_information(&uri)
-                    .map(DocumentSymbolResponse::Flat))
+                    .map(DocumentSymbolResponse::Flat)
             })
             .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
@@ -261,12 +256,7 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> jsonrpc::Result<Option<SemanticTokensResult>> {
         sync::workspace_to_temp_url(&params.text_document.uri, &self.session.directories)
-            .and_then(|uri| {
-                Ok(capabilities::semantic_tokens::semantic_tokens_full(
-                    &self.session,
-                    &uri,
-                ))
-            })
+            .map(|uri| capabilities::semantic_tokens::semantic_tokens_full(&self.session, &uri))
             .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
 
@@ -278,13 +268,9 @@ impl LanguageServer for Backend {
             &params.text_document_position_params.text_document.uri,
             &self.session.directories,
         )
-        .and_then(|uri| {
+        .map(|uri| {
             let position = params.text_document_position_params.position;
-            Ok(capabilities::highlight::get_highlights(
-                &self.session,
-                uri,
-                position,
-            ))
+            capabilities::highlight::get_highlights(&self.session, uri, position)
         })
         .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
@@ -297,9 +283,9 @@ impl LanguageServer for Backend {
             &params.text_document_position_params.text_document.uri,
             &self.session.directories,
         )
-        .and_then(|uri| {
+        .map(|uri| {
             let position = params.text_document_position_params.position;
-            Ok(self.session.token_definition_response(uri, position))
+            self.session.token_definition_response(uri, position)
         })
         .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
@@ -309,7 +295,7 @@ impl LanguageServer for Backend {
         params: DocumentFormattingParams,
     ) -> jsonrpc::Result<Option<Vec<TextEdit>>> {
         sync::workspace_to_temp_url(&params.text_document.uri, &self.session.directories)
-            .and_then(|uri| Ok(self.session.format_text(&uri)))
+            .map(|uri| self.session.format_text(&uri))
             .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
 
@@ -318,15 +304,10 @@ impl LanguageServer for Backend {
             &params.text_document_position.text_document.uri,
             &self.session.directories,
         )
-        .and_then(|uri| {
+        .map(|uri| {
             let new_name = params.new_name;
             let position = params.text_document_position.position;
-            Ok(capabilities::rename::rename(
-                &self.session,
-                new_name,
-                uri,
-                position,
-            ))
+            capabilities::rename::rename(&self.session, new_name, uri, position)
         })
         .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
@@ -336,13 +317,9 @@ impl LanguageServer for Backend {
         params: TextDocumentPositionParams,
     ) -> jsonrpc::Result<Option<PrepareRenameResponse>> {
         sync::workspace_to_temp_url(&params.text_document.uri, &self.session.directories)
-            .and_then(|uri| {
+            .map(|uri| {
                 let position = params.position;
-                Ok(capabilities::rename::prepare_rename(
-                    &self.session,
-                    uri,
-                    position,
-                ))
+                capabilities::rename::prepare_rename(&self.session, uri, position)
             })
             .map_err(|_| jsonrpc::Error::invalid_params("invalid path"))
     }
