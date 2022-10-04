@@ -226,13 +226,13 @@ impl<'ns> TypeCheckContext<'ns> {
 
     /// Short-hand around `type_system::unify_with_self`, where the `TypeCheckContext` provides the
     /// type annotation, self type and help text.
-    pub(crate) fn unify_with_self(
+    pub(crate) fn unify_with_type_annotation_and_self(
         &self,
-        ty: TypeId,
+        received: TypeId,
         span: &Span,
     ) -> (Vec<CompileWarning>, Vec<CompileError>) {
         unify_with_self(
-            ty,
+            received,
             self.type_annotation(),
             self.self_type(),
             span,

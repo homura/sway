@@ -182,7 +182,7 @@ impl TypedFunctionDeclaration {
                     .with_help_text(
                         "Return statement must return the declared function return type."
                     )
-                    .unify_with_self(stmt.return_type, &stmt.span),
+                    .unify_with_type_annotation_and_self(stmt.return_type, &stmt.span),
                 warnings,
                 errors
             );

@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::RwLock;
+
 use super::*;
 use crate::concurrent_slab::ConcurrentSlab;
 use crate::declaration_engine::{
@@ -10,20 +13,88 @@ use sway_types::span::Span;
 use sway_types::{Ident, Spanned};
 
 lazy_static! {
-    static ref TYPE_ENGINE: TypeEngine = TypeEngine::default();
+    static ref TYPE_ENGINE: TypeEngine = TypeEngine::new();
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct TypeEngine {
     slab: ConcurrentSlab<TypeInfo>,
     storage_only_types: ConcurrentSlab<TypeInfo>,
+    id_map: RwLock<HashMap<TypeInfo, TypeId>>,
 }
 
 impl TypeEngine {
+    fn new() -> TypeEngine {
+        let type_engine = TypeEngine::default();
+        type_engine.add_literals();
+        type_engine
+    }
+
+    fn add_literals(&self) {
+        let mut id_map = self.id_map.write().unwrap();
+        id_map.insert(
+            TypeInfo::Boolean,
+            TypeId::new(self.slab.insert(TypeInfo::Boolean)),
+        );
+        id_map.insert(
+            TypeInfo::UnsignedInteger(IntegerBits::Eight),
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::UnsignedInteger(IntegerBits::Eight)),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::UnsignedInteger(IntegerBits::Sixteen),
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::UnsignedInteger(IntegerBits::Sixteen)),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::UnsignedInteger(IntegerBits::ThirtyTwo),
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::UnsignedInteger(IntegerBits::ThirtyTwo)),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::UnsignedInteger(IntegerBits::SixtyFour),
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::UnsignedInteger(IntegerBits::SixtyFour)),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::Byte,
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::Byte),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::B256,
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::B256),
+            ),
+        );
+        id_map.insert(
+            TypeInfo::ErrorRecovery,
+            TypeId::new(
+                self.slab
+                    .insert(TypeInfo::ErrorRecovery),
+            ),
+        );
+    }
+
     /// Inserts a [TypeInfo] into the [TypeEngine] and returns a [TypeId]
     /// referring to that [TypeInfo].
     pub(crate) fn insert_type(&self, ty: TypeInfo) -> TypeId {
-        TypeId::new(self.slab.insert(ty))
+        let id_map = self.id_map.read().unwrap();
+        match id_map.get(&ty) {
+            Some(type_id) => *type_id,
+            None => TypeId::new(self.slab.insert(ty)),
+        }
     }
 
     pub fn size(&self) -> usize {
@@ -214,12 +285,12 @@ impl TypeEngine {
                 }
                 (warnings, errors)
             }
-            //(received_info, expected_info) if received_info == expected_info => (vec![], vec![]),
 
             // Follow any references
-            (Ref(received, _sp1), Ref(expected, _sp2)) if received == expected => (vec![], vec![]),
-            (Ref(received, _sp), _) => self.unify(received, expected, span, help_text),
-            (_, Ref(expected, _sp)) => self.unify(received, expected, span, help_text),
+            (Ref(received, _), Ref(expected, _)) if received == expected => (vec![], vec![]),
+            (Ref(received, _), Ref(expected, _)) => self.unify(received, expected, span, help_text),
+            (Ref(received, _), _) => self.unify(received, expected, span, help_text),
+            (_, Ref(expected, _)) => self.unify(received, expected, span, help_text),
 
             // When we don't know anything about either term, assume that
             // they match and make the one we know nothing about reference the
@@ -293,21 +364,25 @@ impl TypeEngine {
                 (vec![], vec![])
             }
             (ref received_info @ UnknownGeneric { .. }, _) => {
-                self.slab.replace(
+                match self.slab.replace(
                     received,
                     received_info,
                     TypeInfo::Ref(expected, span.clone()),
-                );
-                (vec![], vec![])
+                ) {
+                    None => (vec![], vec![]),
+                    Some(_) => self.unify(received, expected, span, help_text),
+                }
             }
 
             (_, ref expected_info @ UnknownGeneric { .. }) => {
-                self.slab.replace(
+                match self.slab.replace(
                     expected,
                     expected_info,
                     TypeInfo::Ref(received, span.clone()),
-                );
-                (vec![], vec![])
+                ) {
+                    None => (vec![], vec![]),
+                    Some(_) => self.unify(received, expected, span, help_text),
+                }
             }
 
             // if the types, once their ids have been looked up, are the same, we are done
@@ -529,8 +604,15 @@ impl TypeEngine {
 
     /// Clear the [TypeEngine].
     fn clear(&self) {
-        self.slab.clear();
-        self.storage_only_types.clear();
+        // this creates a scope after which id_map is destroyed and the lock
+        // on self.id_map is released
+        {
+            self.slab.clear();
+            self.storage_only_types.clear();
+            let mut id_map = self.id_map.write().unwrap();
+            id_map.clear();
+        }
+        self.add_literals();
     }
 
     /// Resolve the type of the given [TypeId], replacing any instances of
@@ -751,13 +833,14 @@ where
 }
 
 pub fn unify_with_self(
-    a: TypeId,
-    b: TypeId,
+    received: TypeId,
+    expected: TypeId,
     self_type: TypeId,
     span: &Span,
     help_text: impl Into<String>,
 ) -> (Vec<CompileWarning>, Vec<CompileError>) {
-    let (warnings, errors) = TYPE_ENGINE.unify_with_self(a, b, self_type, span, help_text);
+    let (warnings, errors) =
+        TYPE_ENGINE.unify_with_self(received, expected, self_type, span, help_text);
     (
         warnings,
         errors.into_iter().map(|error| error.into()).collect(),
@@ -765,12 +848,12 @@ pub fn unify_with_self(
 }
 
 pub(crate) fn unify(
-    a: TypeId,
-    b: TypeId,
+    received: TypeId,
+    expected: TypeId,
     span: &Span,
     help_text: impl Into<String>,
 ) -> (Vec<CompileWarning>, Vec<CompileError>) {
-    let (warnings, errors) = TYPE_ENGINE.unify(a, b, span, help_text);
+    let (warnings, errors) = TYPE_ENGINE.unify(received, expected, span, help_text);
     (
         warnings,
         errors.into_iter().map(|error| error.into()).collect(),

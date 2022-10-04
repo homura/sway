@@ -248,9 +248,12 @@ impl TypedAstNode {
                                 "Variable declaration's type annotation does not match up \
                                     with the assigned expression's type.",
                             );
-                            let result = TypedExpression::type_check(ctx.by_ref(), body);
-                            let body =
-                                check!(result, error_recovery_expr(name.span()), warnings, errors);
+                            let body = check!(
+                                TypedExpression::type_check(ctx.by_ref(), body),
+                                error_recovery_expr(name.span()),
+                                warnings,
+                                errors
+                            );
                             let typed_var_decl = TypedDeclaration::VariableDeclaration(Box::new(
                                 TypedVariableDeclaration {
                                     name: name.clone(),
