@@ -18,3 +18,8 @@ pub fn require<T>(condition: bool, value: T) {
         revert(FAILED_REQUIRE_SIGNAL)
     }
 }
+
+#[test]
+fn test_revert_intrinsic() {
+    __revert(FAILED_REQUIRE_SIGNAL);
+}
