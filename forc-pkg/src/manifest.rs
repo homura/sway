@@ -41,7 +41,7 @@ pub struct PackageManifestFile {
     /// The deserialized `Forc.toml`.
     manifest: PackageManifest,
     /// The path from which the `Forc.toml` file was read.
-    path: PathBuf,
+    pub(crate) path: PathBuf,
 }
 
 /// A direct mapping to a `Forc.toml`.
@@ -125,6 +125,14 @@ impl Dependency {
 }
 
 impl PackageManifestFile {
+    /// Given a PackageManifest and the path corresponding with that constructs a new
+    /// PackageManifestFile.
+    pub fn new(manifest: PackageManifest, path: &Path) -> Self {
+        Self {
+            manifest,
+            path: path.to_path_buf(),
+        }
+    }
     /// Given a path to a `Forc.toml`, read it and construct a `PackageManifest`.
     ///
     /// This also `validate`s the manifest, returning an `Err` in the case that invalid names,
@@ -577,16 +585,34 @@ impl WorkspaceManifestFile {
         Self::from_file(path)
     }
 
+    /// Returns an iterator over the names of the workspace members.
     pub fn members(&self) -> impl Iterator<Item = &String> + '_ {
         self.members.iter()
     }
 
+    /// Returns an iterator over workspace members root directories.
     pub fn member_paths(&self) -> Result<impl Iterator<Item = PathBuf> + '_> {
         let parent = self
             .path
             .parent()
             .ok_or_else(|| anyhow!("Cannot get parent dir of {:?}", self.path))?;
         Ok(self.members.iter().map(|member| parent.join(member)))
+    }
+
+    /// The path to the `Forc.toml` from which this manifest was loaded.
+    ///
+    /// This will always be a canonical path.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The path to the directory containing the `Forc.toml` from which this manfiest was loaded.
+    ///
+    /// This will always be a canonical path.
+    pub fn dir(&self) -> &Path {
+        self.path()
+            .parent()
+            .expect("failed to retrieve manifest directory")
     }
 }
 

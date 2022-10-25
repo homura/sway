@@ -188,7 +188,7 @@ pub enum SourcePinned {
 }
 
 /// Represents the full build plan for a project.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BuildPlan {
     graph: Graph,
     manifest_map: ManifestMap,
@@ -297,10 +297,28 @@ impl BuildPlan {
         validate_version(manifest)?;
         let mut graph = Graph::default();
         let mut manifest_map = ManifestMap::default();
-        fetch_graph(manifest, offline, &mut graph, &mut manifest_map)?;
+        fetch_graph(manifest, offline, true, &mut graph, &mut manifest_map)?;
         // Validate the graph, since we constructed the graph from scratch the paths will not be a
         // problem but the version check is still needed
         validate_graph(&graph, manifest);
+        let compilation_order = compilation_order(&graph)?;
+        Ok(Self {
+            graph,
+            manifest_map,
+            compilation_order,
+        })
+    }
+
+    /// Create a new build plan for the project by fetching and pinning all dependencies.
+    ///
+    /// This is used for tmp manifest files created before handling workspaces.
+    fn from_manifest_without_validation(
+        manifest: &PackageManifestFile,
+        offline: bool,
+    ) -> Result<Self> {
+        let mut graph = Graph::default();
+        let mut manifest_map = ManifestMap::default();
+        fetch_graph(manifest, offline, false, &mut graph, &mut manifest_map)?;
         let compilation_order = compilation_order(&graph)?;
         Ok(Self {
             graph,
@@ -365,7 +383,7 @@ impl BuildPlan {
         let mut manifest_map = graph_to_manifest_map(manifest.clone(), &graph)?;
 
         // Attempt to fetch the remainder of the graph.
-        let _added = fetch_graph(manifest, offline, &mut graph, &mut manifest_map)?;
+        let _added = fetch_graph(manifest, offline, true, &mut graph, &mut manifest_map)?;
 
         // Determine the compilation order.
         let compilation_order = compilation_order(&graph)?;
@@ -1097,6 +1115,7 @@ pub fn fetch_id(path: &Path, timestamp: std::time::Instant) -> u64 {
 fn fetch_graph(
     proj_manifest: &PackageManifestFile,
     offline: bool,
+    validate: bool,
     graph: &mut Graph,
     manifest_map: &mut ManifestMap,
 ) -> Result<HashSet<NodeIx>> {
@@ -1130,6 +1149,7 @@ fn fetch_graph(
     fetch_deps(
         fetch_id,
         offline,
+        validate,
         proj_node,
         path_root,
         graph,
@@ -1146,6 +1166,7 @@ fn fetch_graph(
 fn fetch_deps(
     fetch_id: u64,
     offline: bool,
+    validate: bool,
     node: NodeIx,
     path_root: PinnedId,
     graph: &mut Graph,
@@ -1195,15 +1216,19 @@ fn fetch_deps(
 
         let dep_pinned = &graph[dep_node];
         let dep_pkg_id = dep_pinned.id();
-        validate_dep_manifest(dep_pinned, &manifest_map[&dep_pkg_id], &dep_edge).map_err(|e| {
-            let parent = &graph[node];
-            anyhow!(
-                "dependency of {:?} named {:?} is invalid: {}",
-                parent.name,
-                dep_name,
-                e
-            )
-        })?;
+        if validate {
+            validate_dep_manifest(dep_pinned, &manifest_map[&dep_pkg_id], &dep_edge).map_err(
+                |e| {
+                    let parent = &graph[node];
+                    anyhow!(
+                        "dependency of {:?} named {:?} is invalid: {}",
+                        parent.name,
+                        dep_name,
+                        e
+                    )
+                },
+            )?;
+        }
 
         let path_root = match dep_pinned.source {
             SourcePinned::Root | SourcePinned::Git(_) | SourcePinned::Registry(_) => dep_pkg_id,
@@ -1214,6 +1239,7 @@ fn fetch_deps(
         added.extend(fetch_deps(
             fetch_id,
             offline,
+            validate,
             dep_node,
             path_root,
             graph,
@@ -2263,7 +2289,9 @@ pub fn build_with_options(build_options: BuildOptions) -> Result<()> {
 
 /// Returns a tmp PackageManifest with the members of the WorkspaceManifest inserted as
 /// dependencies
-fn tmp_workspace_manifest(workspace_manifest: &WorkspaceManifestFile) -> Result<PackageManifest> {
+fn tmp_manifest_with_members(
+    workspace_manifest: &WorkspaceManifestFile,
+) -> Result<PackageManifest> {
     let mut package_manifest = PackageManifest::default();
     let mut dependencies = BTreeMap::new();
     for (member, member_path) in workspace_manifest
@@ -2281,13 +2309,25 @@ fn tmp_workspace_manifest(workspace_manifest: &WorkspaceManifestFile) -> Result<
     Ok(package_manifest)
 }
 
+/// Returns the order of workspace members for build/deploy/check.
 pub fn member_compilation_order(
     manifest: &WorkspaceManifestFile,
     _locked: bool,
-    _offline: bool,
+    offline: bool,
 ) -> Result<Vec<String>> {
-    let _tmp_package_manifest = tmp_workspace_manifest(manifest);
-    Ok(vec![])
+    let mut member_order = vec![];
+    let workspace_members: HashSet<String> = manifest.members().cloned().collect();
+    let tmp_pkg_manifest = tmp_manifest_with_members(manifest)?;
+    let tmp_pkg_manifest_file = PackageManifestFile::new(tmp_pkg_manifest, manifest.path());
+    let build_plan = BuildPlan::from_manifest_without_validation(&tmp_pkg_manifest_file, offline)?;
+    let graph = build_plan.graph();
+    for member in build_plan.compilation_order(){
+        let name = &graph[*member].name;
+        if workspace_members.contains(name) {
+            member_order.push(name.clone());
+        }
+    }
+    Ok(member_order)
 }
 
 /// Returns the ContractId of a compiled contract with specified `salt`.
