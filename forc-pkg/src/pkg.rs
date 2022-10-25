@@ -2302,7 +2302,7 @@ fn tmp_manifest_with_members(
 }
 
 /// Returns the order of workspace members for build/deploy/check.
-pub fn member_compilation_order(
+pub fn workspace_member_order(
     manifest: &WorkspaceManifestFile,
     locked: bool,
     offline: bool,
