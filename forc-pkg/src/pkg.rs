@@ -2167,7 +2167,9 @@ pub fn build_package_with_options(
     profile.terse |= terse_mode;
     profile.time_phases |= time_phases;
 
-    let plan = BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode, true)?;
+    // By default we are validating the build plan before building it.
+    let validate_plan = true;
+    let plan = BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode, validate_plan)?;
 
     // Build it!
     let (compiled, source_map) = build(&plan, &profile)?;
@@ -2264,8 +2266,8 @@ pub fn build_with_options(build_options: BuildOptions) -> Result<()> {
         ManifestFile::Package(package_manifest) => {
             build_package_with_options(&package_manifest, build_options)?;
         }
-        ManifestFile::Workspace(workspace_manifest) => {
-            member_compilation_order(&workspace_manifest, false, false)?;
+        ManifestFile::Workspace(_) => {
+            bail!("Building a workspace is not supported.")
         }
     };
 
