@@ -119,7 +119,7 @@ pub(crate) fn compile_to_bytes(
     let manifest = PackageManifestFile::from_dir(&PathBuf::from(path)).unwrap();
     let result = forc_pkg::build_package_with_options(
         &manifest,
-        forc_pkg::BuildOptions {
+        &forc_pkg::BuildOptions {
             path: Some(format!(
                 "{}/src/e2e_vm_tests/test_programs/{}",
                 manifest_dir, file_name

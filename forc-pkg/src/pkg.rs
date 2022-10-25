@@ -2267,12 +2267,16 @@ pub fn build_with_options(build_options: BuildOptions) -> Result<()> {
             build_package_with_options(&package_manifest, &build_options)?;
         }
         ManifestFile::Workspace(workspace_manifest) => {
-            let member_order = workspace_member_order(&workspace_manifest, build_options.locked, build_options.offline_mode)?;
+            let member_order = workspace_member_order(
+                &workspace_manifest,
+                build_options.locked,
+                build_options.offline_mode,
+            )?;
             for member in member_order {
                 let member_path = this_dir.join(member);
                 let member_pkg_manifest = PackageManifestFile::from_dir(&member_path)?;
                 build_package_with_options(&member_pkg_manifest, &build_options)?;
-            } 
+            }
         }
     };
 
