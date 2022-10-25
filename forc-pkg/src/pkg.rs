@@ -2,7 +2,7 @@ use crate::{
     lock::Lock,
     manifest::{
         BuildProfile, ConfigTimeConstant, Dependency, DependencyDetails, ManifestFile,
-        PackageManifest, PackageManifestFile,
+        PackageManifest, PackageManifestFile, Project,
     },
     WorkspaceManifestFile, CORE, PRELUDE, STD,
 };
@@ -309,24 +309,6 @@ impl BuildPlan {
         })
     }
 
-    /// Create a new build plan for the project by fetching and pinning all dependencies.
-    ///
-    /// This is used for tmp manifest files created before handling workspaces.
-    fn from_manifest_without_validation(
-        manifest: &PackageManifestFile,
-        offline: bool,
-    ) -> Result<Self> {
-        let mut graph = Graph::default();
-        let mut manifest_map = ManifestMap::default();
-        fetch_graph(manifest, offline, false, &mut graph, &mut manifest_map)?;
-        let compilation_order = compilation_order(&graph)?;
-        Ok(Self {
-            graph,
-            manifest_map,
-            compilation_order,
-        })
-    }
-
     /// Create a new build plan taking into account the state of both the PackageManifest and the existing
     /// lock file if there is one.
     ///
@@ -347,9 +329,12 @@ impl BuildPlan {
         manifest: &PackageManifestFile,
         locked: bool,
         offline: bool,
+        validate: bool,
     ) -> Result<Self> {
-        // Check toolchain version
-        validate_version(manifest)?;
+        if validate {
+            // Check toolchain version
+            validate_version(manifest)?;
+        }
         // Keep track of the cause for the new lock file if it turns out we need one.
         let mut new_lock_cause = None;
 
@@ -383,7 +368,7 @@ impl BuildPlan {
         let mut manifest_map = graph_to_manifest_map(manifest.clone(), &graph)?;
 
         // Attempt to fetch the remainder of the graph.
-        let _added = fetch_graph(manifest, offline, true, &mut graph, &mut manifest_map)?;
+        let _added = fetch_graph(manifest, offline, validate, &mut graph, &mut manifest_map)?;
 
         // Determine the compilation order.
         let compilation_order = compilation_order(&graph)?;
@@ -2182,7 +2167,7 @@ pub fn build_package_with_options(
     profile.terse |= terse_mode;
     profile.time_phases |= time_phases;
 
-    let plan = BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode)?;
+    let plan = BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode, true)?;
 
     // Build it!
     let (compiled, source_map) = build(&plan, &profile)?;
@@ -2294,6 +2279,10 @@ fn tmp_manifest_with_members(
 ) -> Result<PackageManifest> {
     let mut package_manifest = PackageManifest::default();
     let mut dependencies = BTreeMap::new();
+    let project = Project {
+        name: "worksapce".to_string(),
+        ..Default::default()
+    };
     for (member, member_path) in workspace_manifest
         .members()
         .zip(workspace_manifest.member_paths()?)
@@ -2306,22 +2295,24 @@ fn tmp_manifest_with_members(
         dependencies.insert(member.clone(), dependency);
     }
     package_manifest.dependencies = Some(dependencies);
+    package_manifest.project = project;
     Ok(package_manifest)
 }
 
 /// Returns the order of workspace members for build/deploy/check.
 pub fn member_compilation_order(
     manifest: &WorkspaceManifestFile,
-    _locked: bool,
+    locked: bool,
     offline: bool,
 ) -> Result<Vec<String>> {
     let mut member_order = vec![];
     let workspace_members: HashSet<String> = manifest.members().cloned().collect();
     let tmp_pkg_manifest = tmp_manifest_with_members(manifest)?;
     let tmp_pkg_manifest_file = PackageManifestFile::new(tmp_pkg_manifest, manifest.path());
-    let build_plan = BuildPlan::from_manifest_without_validation(&tmp_pkg_manifest_file, offline)?;
+    let build_plan =
+        BuildPlan::from_lock_and_manifest(&tmp_pkg_manifest_file, locked, offline, false)?;
     let graph = build_plan.graph();
-    for member in build_plan.compilation_order(){
+    for member in build_plan.compilation_order() {
         let name = &graph[*member].name;
         if workspace_members.contains(name) {
             member_order.push(name.clone());

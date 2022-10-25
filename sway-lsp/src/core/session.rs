@@ -184,7 +184,9 @@ impl Session {
             }
         })?;
 
-        let plan = pkg::BuildPlan::from_lock_and_manifest(&manifest, locked, offline)
+        // By default dependency graph and manifest files should be validated.
+        let validate_pkg = true;
+        let plan = pkg::BuildPlan::from_lock_and_manifest(&manifest, locked, offline, validate_pkg)
             .map_err(LanguageServerError::BuildPlanFailed)?;
 
         // We can convert these destructured elements to a Vec<Diagnostic> later on.
