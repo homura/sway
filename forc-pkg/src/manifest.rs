@@ -45,7 +45,7 @@ pub struct PackageManifestFile {
 }
 
 /// A direct mapping to a `Forc.toml`.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct PackageManifest {
     pub project: Project,
@@ -58,7 +58,7 @@ pub struct PackageManifest {
     pub contract_dependencies: Option<BTreeMap<String, Dependency>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct Project {
     pub authors: Option<Vec<String>>,

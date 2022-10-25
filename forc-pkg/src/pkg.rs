@@ -1,10 +1,10 @@
 use crate::{
     lock::Lock,
     manifest::{
-        BuildProfile, ConfigTimeConstant, Dependency, ManifestFile, PackageManifest,
-        PackageManifestFile,
+        BuildProfile, ConfigTimeConstant, Dependency, DependencyDetails, ManifestFile,
+        PackageManifest, PackageManifestFile,
     },
-    CORE, PRELUDE, STD,
+    WorkspaceManifestFile, CORE, PRELUDE, STD,
 };
 use anyhow::{anyhow, bail, Context, Error, Result};
 use forc_util::{
@@ -2251,12 +2251,43 @@ pub fn build_with_options(build_options: BuildOptions) -> Result<()> {
     let manifest_file = ManifestFile::from_path(&this_dir)?;
     match manifest_file {
         ManifestFile::Package(package_manifest) => {
-            build_package_with_options(&package_manifest, build_options)?
+            build_package_with_options(&package_manifest, build_options)?;
         }
-        ManifestFile::Workspace(_) => bail!("Workspace building is not supported"),
+        ManifestFile::Workspace(workspace_manifest) => {
+            member_compilation_order(&workspace_manifest, false, false)?;
+        }
     };
 
     Ok(())
+}
+
+/// Returns a tmp PackageManifest with the members of the WorkspaceManifest inserted as
+/// dependencies
+fn tmp_workspace_manifest(workspace_manifest: &WorkspaceManifestFile) -> Result<PackageManifest> {
+    let mut package_manifest = PackageManifest::default();
+    let mut dependencies = BTreeMap::new();
+    for (member, member_path) in workspace_manifest
+        .members()
+        .zip(workspace_manifest.member_paths()?)
+    {
+        let dependency_details = DependencyDetails {
+            path: member_path.to_str().map(|path| path.to_string()),
+            ..Default::default()
+        };
+        let dependency = Dependency::Detailed(dependency_details);
+        dependencies.insert(member.clone(), dependency);
+    }
+    package_manifest.dependencies = Some(dependencies);
+    Ok(package_manifest)
+}
+
+pub fn member_compilation_order(
+    manifest: &WorkspaceManifestFile,
+    _locked: bool,
+    _offline: bool,
+) -> Result<Vec<String>> {
+    let _tmp_package_manifest = tmp_workspace_manifest(manifest);
+    Ok(vec![])
 }
 
 /// Returns the ContractId of a compiled contract with specified `salt`.
