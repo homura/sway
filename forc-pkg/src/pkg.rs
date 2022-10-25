@@ -2045,7 +2045,7 @@ pub fn compile(
         Some(BytecodeOrLib::Bytecode(_)) | None => fail(&bc_res.warnings, &bc_res.errors),
     }
 }
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct BuildOptions {
     /// Path to the project, if not specified, current working directory will be used.
     pub path: Option<String>,
@@ -2105,7 +2105,7 @@ pub const SWAY_BIN_ROOT_SUFFIX: &str = "-bin-root";
 
 pub fn build_package_with_options(
     manifest: &PackageManifestFile,
-    build_options: BuildOptions,
+    build_options: &BuildOptions,
 ) -> Result<Compiled> {
     let key_debug: String = "debug".to_string();
     let key_release: String = "release".to_string();
@@ -2127,7 +2127,7 @@ pub fn build_package_with_options(
         build_profile,
         release,
         time_phases,
-    } = build_options;
+    } = build_options.clone();
 
     let mut selected_build_profile = key_debug;
     match &build_profile {
@@ -2264,10 +2264,15 @@ pub fn build_with_options(build_options: BuildOptions) -> Result<()> {
     let manifest_file = ManifestFile::from_path(&this_dir)?;
     match manifest_file {
         ManifestFile::Package(package_manifest) => {
-            build_package_with_options(&package_manifest, build_options)?;
+            build_package_with_options(&package_manifest, &build_options)?;
         }
-        ManifestFile::Workspace(_) => {
-            bail!("Building a workspace is not supported.")
+        ManifestFile::Workspace(workspace_manifest) => {
+            let member_order = workspace_member_order(&workspace_manifest, build_options.locked, build_options.offline_mode)?;
+            for member in member_order {
+                let member_path = this_dir.join(member);
+                let member_pkg_manifest = PackageManifestFile::from_dir(&member_path)?;
+                build_package_with_options(&member_pkg_manifest, &build_options)?;
+            } 
         }
     };
 
