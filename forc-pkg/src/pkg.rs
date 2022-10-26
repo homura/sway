@@ -408,6 +408,30 @@ impl BuildPlan {
         Ok(plan)
     }
 
+    /// Trim the given BuildPlan's graph such that given package is the root.
+    ///
+    /// This is used for getting a particular section of the workspace BuildPlan.
+    pub fn package_plan(&self, package_name: &str) -> Result<Self> {
+        let mut graph = self.graph().clone();
+        let package_node = graph
+            .node_indices()
+            .find(|node_index| graph[*node_index].name == package_name)
+            .ok_or_else(|| {
+                anyhow!(
+                    "{} does not exists in workspace dependency graph",
+                    package_name
+                )
+            })?;
+        // Nodes that are connected to the package_node
+        let connected_nodes: HashMap<NodeIx, usize> =
+            petgraph::algo::dijkstra(&graph, package_node, None, |_| 1);
+        graph.retain_nodes(|_, index| connected_nodes.contains_key(&index));
+        let mut build_plan = self.clone();
+        build_plan.compilation_order = compilation_order(&graph)?;
+        build_plan.graph = graph;
+        Ok(build_plan)
+    }
+
     /// View the build plan's compilation graph.
     pub fn graph(&self) -> &Graph {
         &self.graph
@@ -2167,9 +2191,24 @@ pub fn build_package_with_options(
     profile.terse |= terse_mode;
     profile.time_phases |= time_phases;
 
-    // By default we are validating the build plan before building it.
-    let validate_plan = true;
-    let plan = BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode, validate_plan)?;
+    let parent_workspace_manifest = manifest
+        .dir()
+        .parent()
+        .and_then(|workspace_dir| WorkspaceManifestFile::from_dir(workspace_dir).ok());
+    let plan = match parent_workspace_manifest {
+        Some(parent_workspace_manifest) => {
+            let tmp_manifest = tmp_manifest_with_members(&parent_workspace_manifest)?;
+            let tmp_manifest_file =
+                PackageManifestFile::new(tmp_manifest, parent_workspace_manifest.path());
+            let workspace_build_plan =
+                BuildPlan::from_lock_and_manifest(&tmp_manifest_file, locked, offline_mode, false)?;
+            workspace_build_plan.package_plan(&manifest.project.name)?
+        }
+        None => {
+            // This is a standalone project
+            BuildPlan::from_lock_and_manifest(manifest, locked, offline_mode, true)?
+        }
+    };
 
     // Build it!
     let (compiled, source_map) = build(&plan, &profile)?;
