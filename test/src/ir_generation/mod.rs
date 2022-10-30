@@ -116,7 +116,8 @@ pub(super) async fn run(filter_regex: Option<&regex::Regex>) -> Result<()> {
                 .expect("there were no errors, so there should be a program");
 
             // Compile to IR.
-            let ir = compile_program(typed_program)
+            let include_tests = true;
+            let ir = compile_program(typed_program, include_tests)
                 .unwrap_or_else(|e| {
                     panic!("Failed to compile test {}:\n{e}", path.display());
                 })
