@@ -25,7 +25,7 @@ pub fn hover_data(session: Arc<Session>, url: Url, position: Position) -> Option
         .token_map()
         .get(&to_ident_key(&decl_ident))
         .map(|item| item.value().clone())?;
-    let contents = hover_format(&decl_token, &decl_ident);
+    let contents = hover_format(&decl_token, &decl_ident)?;
     Some(lsp_types::Hover {
         contents,
         range: Some(range),
@@ -65,7 +65,7 @@ fn markup_content(markup: Markup) -> lsp_types::MarkupContent {
     lsp_types::MarkupContent { kind, value }
 }
 
-fn hover_format(token: &Token, ident: &Ident) -> lsp_types::HoverContents {
+fn hover_format(token: &Token, ident: &Ident) -> Option<lsp_types::HoverContents> {
     let token_name: String = ident.as_str().into();
     let doc_comment = format_doc_attributes(token);
 
@@ -120,7 +120,7 @@ fn hover_format(token: &Token, ident: &Ident) -> lsp_types::HoverContents {
             },
             _ => token_name,
         },
-        None => match &token.parsed {
+        None => match &token.parsed.as_ref()? {
             AstToken::Declaration(decl) => match decl {
                 Declaration::VariableDeclaration(var_decl) => {
                     let type_name = format!("{}", var_decl.type_ascription);
@@ -142,5 +142,7 @@ fn hover_format(token: &Token, ident: &Ident) -> lsp_types::HoverContents {
         },
     };
 
-    lsp_types::HoverContents::Markup(markup_content(Markup::from(doc_comment)))
+    Some(lsp_types::HoverContents::Markup(markup_content(
+        Markup::from(doc_comment),
+    )))
 }
